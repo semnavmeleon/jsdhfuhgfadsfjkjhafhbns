@@ -921,14 +921,6 @@ Lossless форматы (без потерь):
         except AttributeError:
             pass
 
-        try:
-            if fname_simple:
-                self.lbl_file_preview.config(text=f"Предпросмотр: {fname_simple}")
-            else:
-                self.lbl_file_preview.config(text=preview_text)
-        except AttributeError:
-            pass
-
     def _build_track_info_section(self, parent):
         lf = ttk.LabelFrame(parent, text="Анализ трека", padding=6)
         lf.pack(side='left', fill='y')
@@ -980,38 +972,6 @@ Lossless форматы (без потерь):
     def _build_filename_templates_tab(self, nb):
         f = ttk.Frame(nb, padding=8)
         nb.add(f, text="Имена")
-
-        # === АКТИВНЫЙ ШАБЛОН (выдвижная панель с кнопкой сворачивания) ===
-        self.active_template_expanded = tk.BooleanVar(value=True)
-        
-        active_container = ttk.LabelFrame(f, text="📝 Активный шаблон", padding=6)
-        active_container.pack(fill='x', pady=(0, 6))
-        
-        # Заголовок с кнопкой сворачивания
-        header_frame = ttk.Frame(active_container)
-        header_frame.pack(fill='x')
-        
-        self.btn_toggle_active = ttk.Button(header_frame, text="▼", width=3,
-                                            command=self._toggle_active_template_panel)
-        self.btn_toggle_active.pack(side='left', padx=(0, 6))
-        
-        ttk.Label(header_frame, text="Текущий:", font=('', 9, 'bold')).pack(side='left', padx=(0, 6))
-        
-        self.cmb_template = ttk.Combobox(header_frame, textvariable=self.v_filename_template,
-                                         width=55, state='readonly')
-        self.cmb_template.pack(side='left', padx=(0, 6))
-        self.cmb_template.bind('<<ComboboxSelected>>', lambda e: self._update_name_preview())
-        
-        # Выдвижная панель с предпросмотром
-        self.active_template_panel = ttk.Frame(active_container)
-        self.active_template_panel.pack(fill='x', pady=(6, 0))
-        
-        preview_frame = ttk.Frame(self.active_template_panel, relief='sunken', borderwidth=1)
-        preview_frame.pack(fill='x')
-        self.lbl_file_preview = ttk.Label(preview_frame, text="Предпросмотр: --",
-                                          foreground='#333', font=('Consolas', 9),
-                                          padding=6, anchor='w', justify='left')
-        self.lbl_file_preview.pack(fill='x')
 
         # === КОНСТРУКТОР И СОХРАНЁННЫЕ ШАБЛОНЫ ===
         mid_frame = ttk.Frame(f)
@@ -1102,19 +1062,6 @@ Lossless форматы (без потерь):
                    command=self._save_user_template).pack(side='left')
 
         self._refresh_template_list()
-
-        self.v_filename_template.trace_add('write', lambda *_: self._update_name_preview())
-
-    def _toggle_active_template_panel(self):
-        """Переключает видимость выдвижной панели активного шаблона"""
-        if self.active_template_expanded.get():
-            self.active_template_panel.pack_forget()
-            self.btn_toggle_active.config(text="▶")
-            self.active_template_expanded.set(False)
-        else:
-            self.active_template_panel.pack(fill='x', pady=(6, 0))
-            self.btn_toggle_active.config(text="▼")
-            self.active_template_expanded.set(True)
 
     def _insert_template_var(self, var_text):
         """Устаревший метод, теперь используется _insert_template_var_tagged"""
@@ -1387,15 +1334,6 @@ Lossless форматы (без потерь):
         self.template_listbox.delete(0, 'end')
         for tpl in self.user_templates:
             self.template_listbox.insert('end', f"{tpl['name']}  ->  {tpl['pattern']}")
-        
-        patterns = [t['pattern'] for t in self.user_templates]
-        if not patterns:
-            patterns = ['VK_{n:03d}_custom']
-        self.cmb_template['values'] = patterns
-        
-        current = self.v_filename_template.get()
-        if current not in patterns and patterns:
-            self.v_filename_template.set(patterns[0])
 
     def _build_waveform_section(self, parent):
         lf = ttk.LabelFrame(parent, text="Предпросмотр формы сигнала (Детальный просмотр)", padding=4)
