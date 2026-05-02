@@ -2265,7 +2265,8 @@ class VKModifierApp:
             },
             'filename_template': self.v_filename_template.get() or 'VK_{n:03d}_custom',
             'quality': quality_map[q_idx],
-            'rename_files': self.v_rename.get()
+            'rename_files': self.v_rename.get(),
+            'preserve_metadata': self.v_preserve_meta.get()
         }
 
     def _start(self):
