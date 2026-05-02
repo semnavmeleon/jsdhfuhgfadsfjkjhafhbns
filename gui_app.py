@@ -741,11 +741,11 @@ Lossless форматы (без потерь):
         
         if fmt in QUALITY_PRESETS:
             self.cmb_conv_quality['values'] = QUALITY_PRESETS[fmt]
-            self.cmb_conv_quality.current(0)
+            self.cmb_conv_quality.current(0)  # 320 kbps уже первый в списке
             self.cmb_conv_quality.config(state='readonly')
         elif fmt in ['wav', 'aiff', 'au', 'caf']:
             self.cmb_conv_quality['values'] = ['Uncompressed PCM']
-            self.cmb_conv_quality.current(0)
+            self.cmb_conv_quality.current(0)  # 320 kbps уже первый в списке
             self.cmb_conv_quality.config(state='disabled')
         elif fmt == 'flac':
             self.cmb_conv_quality['values'] = [
@@ -758,15 +758,15 @@ Lossless форматы (без потерь):
             self.cmb_conv_quality.config(state='readonly')
         elif fmt == 'alac':
             self.cmb_conv_quality['values'] = ['Lossless']
-            self.cmb_conv_quality.current(0)
+            self.cmb_conv_quality.current(0)  # 320 kbps уже первый в списке
             self.cmb_conv_quality.config(state='disabled')
         elif fmt in ['wv', 'ape', 'tta', 'shn']:
             self.cmb_conv_quality['values'] = ['Lossless / Default']
-            self.cmb_conv_quality.current(0)
+            self.cmb_conv_quality.current(0)  # 320 kbps уже первый в списке
             self.cmb_conv_quality.config(state='disabled')
         elif fmt in ['ac3', 'dts', 'mp2', 'mpc', 'spx', 'amr', 'mka', 'oga']:
             self.cmb_conv_quality['values'] = ['Default quality']
-            self.cmb_conv_quality.current(0)
+            self.cmb_conv_quality.current(0)  # 320 kbps уже первый в списке
             self.cmb_conv_quality.config(state='disabled')
     
     def _start_conversion(self):
@@ -985,79 +985,86 @@ Lossless форматы (без потерь):
     def _build_filename_templates_tab(self, nb):
         f = ttk.Frame(nb, padding=8)
         nb.add(f, text="Имена")
-        
-        top_frame = ttk.LabelFrame(f, text="Активный шаблон", padding=6)
-        top_frame.pack(fill='x', pady=(0, 6))
-        
-        sel_row = ttk.Frame(top_frame)
+
+        # === АКТИВНЫЙ ШАБЛОН (выдвижная панель) ===
+        active_frame = ttk.LabelFrame(f, text="📝 Активный шаблон", padding=6)
+        active_frame.pack(fill='x', pady=(0, 6))
+
+        # Верхняя строка с выбором и кнопкой помощи
+        sel_row = ttk.Frame(active_frame)
         sel_row.pack(fill='x')
         ttk.Label(sel_row, text="Текущий:", font=('', 9, 'bold')).pack(side='left', padx=(0, 6))
-        
+
         self.cmb_template = ttk.Combobox(sel_row, textvariable=self.v_filename_template,
                                          width=45, state='readonly')
         self.cmb_template.pack(side='left', padx=(0, 6))
         self.cmb_template.bind('<<ComboboxSelected>>', lambda e: self._update_name_preview())
-        
-        ttk.Button(sel_row, text="Помощь по шаблонам", 
+
+        ttk.Button(sel_row, text="Помощь по шаблонам",
                    command=self._show_template_help).pack(side='left')
-        
-        preview_frame = ttk.Frame(top_frame, relief='sunken', borderwidth=1)
+
+        # Предпросмотр
+        preview_frame = ttk.Frame(active_frame, relief='sunken', borderwidth=1)
         preview_frame.pack(fill='x', pady=(6, 0))
         self.lbl_file_preview = ttk.Label(preview_frame, text="Предпросмотр: --",
                                           foreground='#333', font=('Consolas', 9),
                                           padding=6, anchor='w', justify='left')
         self.lbl_file_preview.pack(fill='x')
-        
+
+        # === КОНСТРУКТОР И СОХРАНЁННЫЕ ШАБЛОНЫ ===
         mid_frame = ttk.Frame(f)
         mid_frame.pack(fill='both', expand=True, pady=6)
-        
-        list_frame = ttk.LabelFrame(mid_frame, text="Сохранённые шаблоны", padding=4)
+
+        # Левая колонка - Сохранённые шаблоны
+        list_frame = ttk.LabelFrame(mid_frame, text="💾 Сохранённые шаблоны", padding=4)
         list_frame.pack(side='left', fill='both', expand=True, padx=(0, 4))
-        
+
         sb_tpl = ttk.Scrollbar(list_frame, orient='vertical')
         self.template_listbox = tk.Listbox(list_frame, yscrollcommand=sb_tpl.set,
-                                           height=8, exportselection=False,
+                                           height=12, exportselection=False,
                                            selectbackground='#6366f1', selectforeground='white')
         sb_tpl.config(command=self.template_listbox.yview)
         sb_tpl.pack(side='right', fill='y')
         self.template_listbox.pack(side='left', fill='both', expand=True)
         self.template_listbox.bind('<<ListboxSelect>>', self._on_template_select)
         self.template_listbox.bind('<Double-Button-1>', lambda e: self._use_selected_template())
-        
+
+        # Кнопки под списком шаблонов
         tpl_btns = ttk.Frame(list_frame)
         tpl_btns.pack(fill='x', pady=(4, 0))
         ttk.Button(tpl_btns, text="Использовать", command=self._use_selected_template).pack(side='left', padx=2)
         ttk.Button(tpl_btns, text="Удалить", command=self._delete_selected_template).pack(side='left', padx=2)
-        
+
+        # Правая колонка - Конструктор
         constr_frame = ttk.LabelFrame(mid_frame, text="Конструктор шаблона", padding=6)
         constr_frame.pack(side='right', fill='both', expand=True)
-        
+
         ttk.Label(constr_frame, text="Шаблон:", font=('', 9, 'bold')).pack(anchor='w')
-        
-        # Создаём текстовый виджет с поддержкой тегов для цельных переменных
+
+        # Текстовый виджет с поддержкой тегов для цельных переменных
         self.text_template_pattern = tk.Text(constr_frame, font=('Consolas', 10), width=35, height=3,
                                               wrap='word', undo=True, autoseparators=True)
         self.text_template_pattern.pack(fill='x', pady=(2, 4))
-        
+
         # Настройка тегов для переменных
         self.text_template_pattern.tag_configure('variable', background='#e0e7ff', foreground='#3730a3',
                                                   borderwidth=1, relief='raised')
         self.text_template_pattern.tag_configure('variable_sel', background='#6366f1', foreground='white')
-        
+
         # Привязка событий для работы с переменными как цельными объектами
         self.text_template_pattern.bind('<KeyRelease>', self._on_text_template_change)
         self.text_template_pattern.bind('<KeyPress-BackSpace>', self._on_variable_backspace)
         self.text_template_pattern.bind('<KeyPress-Delete>', self._on_variable_delete)
         self.text_template_pattern.bind('<KeyPress-space>', self._on_text_template_change)
         self.text_template_pattern.bind('<KeyPress-Return>', self._on_text_template_change)
-        
-        vars_label = ttk.Label(constr_frame, text="Быстрая вставка переменных:", 
+
+        vars_label = ttk.Label(constr_frame, text="Быстрая вставка переменных:",
                                font=('', 8, 'bold'), foreground='#666')
         vars_label.pack(anchor='w', pady=(0, 2))
-        
+
         vars_frame = ttk.Frame(constr_frame)
         vars_frame.pack(fill='x', pady=(0, 4))
-        
+
         variables = [
             ('{n}', 'Номер'),
             ('{n:03d}', 'Номер 001'),
@@ -1067,42 +1074,30 @@ Lossless форматы (без потерь):
             ('{album}', 'Альбом'),
             ('{year}', 'Год'),
         ]
-        
+
         for i, (var_text, var_desc) in enumerate(variables):
             btn = ttk.Button(vars_frame, text=var_text, width=10,
                             command=lambda vt=var_text: self._insert_template_var_tagged(vt))
             btn.grid(row=i // 4, column=i % 4, padx=2, pady=2, sticky='ew')
-        
+
         preview_live_frame = ttk.Frame(constr_frame, relief='sunken', borderwidth=1)
         preview_live_frame.pack(fill='x', pady=(8, 4))
-        self.lbl_template_live_preview = ttk.Label(preview_live_frame, 
+        self.lbl_template_live_preview = ttk.Label(preview_live_frame,
                                                     text="Предпросмотр: --",
                                                     foreground='#333', font=('Consolas', 9),
                                                     padding=4, anchor='w', justify='left')
         self.lbl_template_live_preview.pack(fill='x')
-        
+
         save_frame = ttk.Frame(constr_frame)
         save_frame.pack(fill='x')
         ttk.Label(save_frame, text="Имя шаблона:").pack(side='left', padx=(0, 4))
         self.entry_template_name = ttk.Entry(save_frame, textvariable=self.v_new_template_name, width=20)
         self.entry_template_name.pack(side='left', padx=(0, 4))
-        ttk.Button(save_frame, text="Сохранить шаблон", 
+        ttk.Button(save_frame, text="Сохранить шаблон",
                    command=self._save_user_template).pack(side='left')
-        
-        info_frame = ttk.LabelFrame(f, text="Справка", padding=4)
-        info_frame.pack(fill='x')
-        info_text = (
-            "Доступные переменные: {n}  {n:03d}  {original}  {title}  {artist}  {album}  {year}\n"
-            "- Недопустимые символы \\/:*?\"<>| заменяются на _\n"
-            "- Двойной клик по шаблону в списке -- сделать активным\n"
-            "- Ctrl+C/V/X/A работают во всех текстовых полях\n"
-            "- Переменные можно удалять как один символ (Backspace/Delete)"
-        )
-        ttk.Label(info_frame, text=info_text, foreground='#888', 
-                  font=('', 7), justify='left').pack(anchor='w')
-        
+
         self._refresh_template_list()
-        
+
         self.v_filename_template.trace_add('write', lambda *_: self._update_name_preview())
 
     def _insert_template_var(self, var_text):
