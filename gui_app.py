@@ -1021,11 +1021,16 @@ class VKModifierApp:
             return
         idx = sel[0]
         if idx < len(self.user_templates):
-            pattern = self.user_templates[idx]['pattern']
+            tpl = self.user_templates[idx]
+            pattern = tpl['pattern']
             self.v_filename_template.set(pattern)
             self._selected_template_index = idx
-            self._update_name_preview()
-            self._log(f"Шаблон '{self.user_templates[idx]['name']}' активирован", 'success')
+            # Обновляем редактор шаблона
+            self.text_template_pattern.delete('1.0', 'end')
+            self.text_template_pattern.insert('1.0', pattern)
+            self._apply_variable_tags()
+            self._update_live_preview_from_text()
+            self._log(f"Шаблон '{tpl['name']}' активирован", 'success')
 
     def _on_template_select(self, event):
         sel = self.template_listbox.curselection()
