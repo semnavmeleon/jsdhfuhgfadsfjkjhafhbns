@@ -739,13 +739,17 @@ Lossless форматы (без потерь):
         desc = SUPPORTED_FORMATS.get(fmt, '')
         self.lbl_format_desc.config(text=desc)
         
+        current_quality = self.v_conv_quality.get()
+        
         if fmt in QUALITY_PRESETS:
             self.cmb_conv_quality['values'] = QUALITY_PRESETS[fmt]
-            self.cmb_conv_quality.current(0)  # 320 kbps уже первый в списке
+            # Устанавливаем 320 kbps (CBR) или первый доступный вариант по умолчанию
+            default_val = '320 kbps (CBR)' if '320 kbps (CBR)' in QUALITY_PRESETS[fmt] else QUALITY_PRESETS[fmt][0]
+            self.v_conv_quality.set(default_val)
             self.cmb_conv_quality.config(state='readonly')
         elif fmt in ['wav', 'aiff', 'au', 'caf']:
             self.cmb_conv_quality['values'] = ['Uncompressed PCM']
-            self.cmb_conv_quality.current(0)  # 320 kbps уже первый в списке
+            self.v_conv_quality.set('Uncompressed PCM')
             self.cmb_conv_quality.config(state='disabled')
         elif fmt == 'flac':
             self.cmb_conv_quality['values'] = [
@@ -754,19 +758,19 @@ Lossless форматы (без потерь):
                 'Compression 8 (best)',
                 'Compression 12 (max)'
             ]
-            self.cmb_conv_quality.current(2)
+            self.v_conv_quality.set('Compression 5 (default)')
             self.cmb_conv_quality.config(state='readonly')
         elif fmt == 'alac':
             self.cmb_conv_quality['values'] = ['Lossless']
-            self.cmb_conv_quality.current(0)  # 320 kbps уже первый в списке
+            self.v_conv_quality.set('Lossless')
             self.cmb_conv_quality.config(state='disabled')
         elif fmt in ['wv', 'ape', 'tta', 'shn']:
             self.cmb_conv_quality['values'] = ['Lossless / Default']
-            self.cmb_conv_quality.current(0)  # 320 kbps уже первый в списке
+            self.v_conv_quality.set('Lossless / Default')
             self.cmb_conv_quality.config(state='disabled')
         elif fmt in ['ac3', 'dts', 'mp2', 'mpc', 'spx', 'amr', 'mka', 'oga']:
             self.cmb_conv_quality['values'] = ['Default quality']
-            self.cmb_conv_quality.current(0)  # 320 kbps уже первый в списке
+            self.v_conv_quality.set('Default quality')
             self.cmb_conv_quality.config(state='disabled')
     
     def _start_conversion(self):
@@ -908,29 +912,20 @@ Lossless форматы (без потерь):
                 year=self._safe_filename(str(ex_year)),
             ) + '.mp3'
             
-            fname_padded = tpl.format(
-                n=42,
-                original=self._safe_filename(orig),
-                title=self._safe_filename(ex_title),
-                artist=self._safe_filename(ex_artist),
-                album=self._safe_filename(ex_album),
-                year=self._safe_filename(str(ex_year)),
-            ) + '.mp3'
-            
-            preview_text = f"Пример при n=1:  {fname_simple}\n"
-            preview_text += f"Пример при n=42: {fname_padded}"
-                    
         except (KeyError, ValueError) as e:
-            preview_text = f"ОШИБКА в шаблоне: {e}\n"
-            preview_text += "Допустимые переменные: {n}, {n:03d}, {original}, {title}, {artist}, {album}, {year}"
-
+            preview_text = f"ОШИБКА в шаблоне: {e}"
+            fname_simple = None
+                    
         try:
             self.lbl_title_preview.config(text=f"Предпросмотр: {display_title}")
         except AttributeError:
             pass
 
         try:
-            self.lbl_file_preview.config(text=preview_text)
+            if fname_simple:
+                self.lbl_file_preview.config(text=f"Предпросмотр: {fname_simple}")
+            else:
+                self.lbl_file_preview.config(text=preview_text)
         except AttributeError:
             pass
 
@@ -986,23 +981,33 @@ Lossless форматы (без потерь):
         f = ttk.Frame(nb, padding=8)
         nb.add(f, text="Имена")
 
-        # === АКТИВНЫЙ ШАБЛОН (выдвижная панель) ===
-        active_frame = ttk.LabelFrame(f, text="📝 Активный шаблон", padding=6)
-        active_frame.pack(fill='x', pady=(0, 6))
-
-        # Верхняя строка с выбором шаблона
-        sel_row = ttk.Frame(active_frame)
-        sel_row.pack(fill='x')
-        ttk.Label(sel_row, text="Текущий:", font=('', 9, 'bold')).pack(side='left', padx=(0, 6))
-
-        self.cmb_template = ttk.Combobox(sel_row, textvariable=self.v_filename_template,
+        # === АКТИВНЫЙ ШАБЛОН (выдвижная панель с кнопкой сворачивания) ===
+        self.active_template_expanded = tk.BooleanVar(value=True)
+        
+        active_container = ttk.LabelFrame(f, text="📝 Активный шаблон", padding=6)
+        active_container.pack(fill='x', pady=(0, 6))
+        
+        # Заголовок с кнопкой сворачивания
+        header_frame = ttk.Frame(active_container)
+        header_frame.pack(fill='x')
+        
+        self.btn_toggle_active = ttk.Button(header_frame, text="▼", width=3,
+                                            command=self._toggle_active_template_panel)
+        self.btn_toggle_active.pack(side='left', padx=(0, 6))
+        
+        ttk.Label(header_frame, text="Текущий:", font=('', 9, 'bold')).pack(side='left', padx=(0, 6))
+        
+        self.cmb_template = ttk.Combobox(header_frame, textvariable=self.v_filename_template,
                                          width=55, state='readonly')
         self.cmb_template.pack(side='left', padx=(0, 6))
         self.cmb_template.bind('<<ComboboxSelected>>', lambda e: self._update_name_preview())
-
-        # Предпросмотр
-        preview_frame = ttk.Frame(active_frame, relief='sunken', borderwidth=1)
-        preview_frame.pack(fill='x', pady=(6, 0))
+        
+        # Выдвижная панель с предпросмотром
+        self.active_template_panel = ttk.Frame(active_container)
+        self.active_template_panel.pack(fill='x', pady=(6, 0))
+        
+        preview_frame = ttk.Frame(self.active_template_panel, relief='sunken', borderwidth=1)
+        preview_frame.pack(fill='x')
         self.lbl_file_preview = ttk.Label(preview_frame, text="Предпросмотр: --",
                                           foreground='#333', font=('Consolas', 9),
                                           padding=6, anchor='w', justify='left')
@@ -1012,9 +1017,12 @@ Lossless форматы (без потерь):
         mid_frame = ttk.Frame(f)
         mid_frame.pack(fill='both', expand=True, pady=6)
 
-        # Левая колонка - Сохранённые шаблоны
-        list_frame = ttk.LabelFrame(mid_frame, text="💾 Сохранённые шаблоны", padding=4)
-        list_frame.pack(side='left', fill='both', expand=True, padx=(0, 4))
+        # Левая колонка - Сохранённые шаблоны + кнопки под ним
+        left_column = ttk.Frame(mid_frame)
+        left_column.pack(side='left', fill='both', expand=True, padx=(0, 4))
+        
+        list_frame = ttk.LabelFrame(left_column, text="💾 Сохранённые шаблоны", padding=4)
+        list_frame.pack(side='top', fill='both', expand=True)
 
         sb_tpl = ttk.Scrollbar(list_frame, orient='vertical')
         self.template_listbox = tk.Listbox(list_frame, yscrollcommand=sb_tpl.set,
@@ -1026,11 +1034,11 @@ Lossless форматы (без потерь):
         self.template_listbox.bind('<<ListboxSelect>>', self._on_template_select)
         self.template_listbox.bind('<Double-Button-1>', lambda e: self._use_selected_template())
 
-        # Кнопки под списком шаблонов
-        tpl_btns = ttk.Frame(list_frame)
-        tpl_btns.pack(fill='x', pady=(4, 0))
-        ttk.Button(tpl_btns, text="Использовать", command=self._use_selected_template).pack(side='left', padx=2)
-        ttk.Button(tpl_btns, text="Удалить", command=self._delete_selected_template).pack(side='left', padx=2)
+        # Кнопки "Использовать" и "Удалить" строго под фреймом списка шаблонов
+        list_buttons_frame = ttk.Frame(left_column)
+        list_buttons_frame.pack(side='top', fill='x', pady=(4, 0))
+        ttk.Button(list_buttons_frame, text="Использовать", command=self._use_selected_template).pack(side='left', padx=2, expand=True, fill='x')
+        ttk.Button(list_buttons_frame, text="Удалить", command=self._delete_selected_template).pack(side='left', padx=2, expand=True, fill='x')
 
         # Правая колонка - Конструктор
         constr_frame = ttk.LabelFrame(mid_frame, text="Конструктор шаблона", padding=6)
@@ -1096,6 +1104,17 @@ Lossless форматы (без потерь):
         self._refresh_template_list()
 
         self.v_filename_template.trace_add('write', lambda *_: self._update_name_preview())
+
+    def _toggle_active_template_panel(self):
+        """Переключает видимость выдвижной панели активного шаблона"""
+        if self.active_template_expanded.get():
+            self.active_template_panel.pack_forget()
+            self.btn_toggle_active.config(text="▶")
+            self.active_template_expanded.set(False)
+        else:
+            self.active_template_panel.pack(fill='x', pady=(6, 0))
+            self.btn_toggle_active.config(text="▼")
+            self.active_template_expanded.set(True)
 
     def _insert_template_var(self, var_text):
         """Устаревший метод, теперь используется _insert_template_var_tagged"""
