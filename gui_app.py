@@ -458,7 +458,7 @@ class VKModifierApp:
         self.v_preserve_cover  = tk.BooleanVar()
         self.v_rename          = tk.BooleanVar(value=True)
         self.v_delete_orig     = tk.BooleanVar()
-        self.v_quality         = tk.StringVar(value='245 kbps (VBR Q0)')
+        self.v_quality         = tk.StringVar(value='320 kbps (CBR)')
         self.v_title  = tk.StringVar()
         self.v_artist = tk.StringVar()
         self.v_album  = tk.StringVar()
@@ -990,18 +990,15 @@ Lossless форматы (без потерь):
         active_frame = ttk.LabelFrame(f, text="📝 Активный шаблон", padding=6)
         active_frame.pack(fill='x', pady=(0, 6))
 
-        # Верхняя строка с выбором и кнопкой помощи
+        # Верхняя строка с выбором шаблона
         sel_row = ttk.Frame(active_frame)
         sel_row.pack(fill='x')
         ttk.Label(sel_row, text="Текущий:", font=('', 9, 'bold')).pack(side='left', padx=(0, 6))
 
         self.cmb_template = ttk.Combobox(sel_row, textvariable=self.v_filename_template,
-                                         width=45, state='readonly')
+                                         width=55, state='readonly')
         self.cmb_template.pack(side='left', padx=(0, 6))
         self.cmb_template.bind('<<ComboboxSelected>>', lambda e: self._update_name_preview())
-
-        ttk.Button(sel_row, text="Помощь по шаблонам",
-                   command=self._show_template_help).pack(side='left')
 
         # Предпросмотр
         preview_frame = ttk.Frame(active_frame, relief='sunken', borderwidth=1)
@@ -1441,7 +1438,7 @@ Lossless форматы (без потерь):
         
         # Instructions label
         lbl_instructions = ttk.Label(lf, text="🖱️ Колесо: Прокрутка | Ctrl+Колесо/+-: Зум | Shift+Колесо: Быстрая прокрутка | ЛКМ: Перетаскивание", font=("Segoe UI", 9), foreground="#888")
-        lbl_instructions.pack(anchor=W, pady=(5, 0))
+        lbl_instructions.pack(anchor='w', pady=(5, 0))
 
     def _load_waveform_for_file(self, file_path):
         if self._waveform_loading:
@@ -2163,19 +2160,25 @@ Lossless форматы (без потерь):
     def _show_template_help(self):
         help_win = tk.Toplevel(self.root)
         help_win.title("Помощь по шаблонам имён файлов")
-        help_win.geometry("700x600")
-        help_win.minsize(600, 500)
+        help_win.geometry("750x650")
+        help_win.minsize(650, 550)
         help_win.transient(self.root)
         help_win.grab_set()
         
-        main_frame = ttk.Frame(help_win, padding=10)
+        main_frame = ttk.Frame(help_win, padding=15)
         main_frame.pack(fill='both', expand=True)
         
-        ttk.Label(main_frame, text="Документация по шаблонам имён файлов", 
-                  font=('', 12, 'bold')).pack(anchor='w', pady=(0, 10))
+        # Заголовок с кнопкой закрытия в одном ряду
+        header_frame = ttk.Frame(main_frame)
+        header_frame.pack(fill='x', pady=(0, 15))
+        
+        ttk.Label(header_frame, text="📖 Документация по шаблонам имён файлов", 
+                  font=('', 14, 'bold')).pack(side='left')
+        
+        ttk.Button(header_frame, text="Закрыть", command=help_win.destroy).pack(side='right')
         
         text = tk.Text(main_frame, wrap='word', font=('Consolas', 10), 
-                       padx=10, pady=10, bg='#f8f9fa')
+                       padx=15, pady=15, bg='#f8f9fa')
         scroll = ttk.Scrollbar(main_frame, orient='vertical', command=text.yview)
         text.configure(yscrollcommand=scroll.set)
         scroll.pack(side='right', fill='y')
