@@ -461,8 +461,6 @@ class VKModifierApp:
         self.v_album  = tk.StringVar()
         self.v_year   = tk.StringVar()
         self.v_genre  = tk.StringVar()
-        self.v_reupload_text = tk.StringVar(value='(REUPLOAD)')
-        self.v_reupload_pos  = tk.StringVar(value='after')
         self.v_filename_template = tk.StringVar(value='VK_{n:03d}_custom')
         self.v_preset_name = tk.StringVar()
         self.v_max_workers = tk.IntVar(value=4)
@@ -876,31 +874,20 @@ Lossless форматы (без потерь):
         album = self.v_album.get()
         year = self.v_year.get()
         
-        # Текст REUPLOAD теперь всегда добавляется автоматически если есть переменные в шаблоне
-        text = self.v_reupload_text.get()
-        pos = self.v_reupload_pos.get()
-        if title_raw:
-            if pos == 'before':
-                title_with_reupload = f"{text} {title_raw}"
-            else:
-                title_with_reupload = f"{title_raw} {text}"
-        else:
-            title_with_reupload = text
-        
-        display_title = title_with_reupload if title_with_reupload else "(нет названия)"
+        display_title = title_raw if title_raw else "(нет названия)"
         
         tpl = self.v_filename_template.get() or 'VK_{n:03d}_custom'
         
         if self.current_index >= 0 and self.current_index < len(self.tracks_info):
             ti = self.tracks_info[self.current_index]
             orig = os.path.splitext(os.path.basename(self.input_files[self.current_index]))[0]
-            ex_title = title_with_reupload or ti.title or orig
+            ex_title = title_raw or ti.title or orig
             ex_artist = artist or ti.artist or ''
             ex_album = album or ti.album or ''
             ex_year = year or ti.year or ''
         else:
             orig = 'example_track'
-            ex_title = title_with_reupload or 'Example Song'
+            ex_title = title_raw or 'Example Song'
             ex_artist = artist or 'Example Artist'
             ex_album = album or 'Example Album'
             ex_year = year or '2024'
@@ -926,11 +913,6 @@ Lossless форматы (без потерь):
             
             preview_text = f"Пример при n=1:  {fname_simple}\n"
             preview_text += f"Пример при n=42: {fname_padded}"
-            
-            if '{title}' not in tpl:
-                preview_text += f"\n\nВНИМАНИЕ: В шаблоне НЕТ {{title}}, поэтому текст '{self.v_reupload_text.get()}' НЕ попадёт в имя файла!"
-            else:
-                preview_text += f"\n\nOK: Текст '{self.v_reupload_text.get()}' будет добавлен в имя файла через {{title}}"
                     
         except (KeyError, ValueError) as e:
             preview_text = f"ОШИБКА в шаблоне: {e}\n"
@@ -1105,7 +1087,6 @@ Lossless форматы (без потерь):
         info_frame.pack(fill='x')
         info_text = (
             "Доступные переменные: {n}  {n:03d}  {original}  {title}  {artist}  {album}  {year}\n"
-            "- {title} автоматически включает текст REUPLOAD\n"
             "- Недопустимые символы \\/:*?\"<>| заменяются на _\n"
             "- Двойной клик по шаблону в списке -- сделать активным\n"
             "- Ctrl+C/V/X/A работают во всех текстовых полях\n"
@@ -1117,8 +1098,6 @@ Lossless форматы (без потерь):
         self._refresh_template_list()
         
         self.v_filename_template.trace_add('write', lambda *_: self._update_name_preview())
-        self.v_reupload_text.trace_add('write', lambda *_: self._update_name_preview())
-        self.v_reupload_pos.trace_add('write', lambda *_: self._update_name_preview())
 
     def _insert_template_var(self, var_text):
         """Устаревший метод, теперь используется _insert_template_var_tagged"""
@@ -2065,48 +2044,28 @@ Lossless форматы (без потерь):
     {n:03d}       -> Номер с ведущими нулями (001, 002, 003...)
     {n:04d}       -> Номер с ведущими нулями (0001, 0002...)
     {original}    -> Исходное имя файла (без расширения .mp3)
-    {title}       -> Название трека из метаданных (с учётом REUPLOAD текста)
+    {title}       -> Название трека из метаданных
     {artist}      -> Имя исполнителя
     {album}       -> Название альбома
     {year}        -> Год выпуска
 
-2. КАК РАБОТАЕТ "REUPLOAD" ТЕКСТ
---------------------------------------------------------------------------------
-
-    Текст из поля "Добавить текст" (например, "(REUPLOAD)") добавляется 
-    НЕПОСРЕДСТВЕННО в переменную {title}!
-
-    Пример работы:
-        - Исходный title в метаданных: "My Song"
-        - Текст REUPLOAD: "(REUPLOAD)"
-        - Позиция: "После"
-        -> Итоговый title: "My Song (REUPLOAD)"
-
-    ВАЖНО: REUPLOAD попадёт в имя файла ТОЛЬКО если в шаблоне есть {title}!
-
-3. ПРИМЕРЫ ШАБЛОНОВ И РЕЗУЛЬТАТОВ
+2. ПРИМЕРЫ ШАБЛОНОВ И РЕЗУЛЬТАТОВ
 --------------------------------------------------------------------------------
 
     ШАБЛОН                                  | РЕЗУЛЬТАТ
     ----------------------------------------+------------------------------------------
-    {title}                                 | My Summer Hit (REUPLOAD).mp3
-    {artist} - {title}                      | DJ Example - My Summer Hit (REUPLOAD).mp3
+    {title}                                 | My Summer Hit.mp3
+    {artist} - {title}                      | DJ Example - My Summer Hit.mp3
     {n:03d} - {artist} - {title}            | 005 - DJ Example - My Summer Hit.mp3
     {original}_{n:02d}                      | my_summer_hit_05.mp3
     VK_{n:03d}_custom                       | VK_005_custom.mp3
     modified_{original}                     | modified_my_summer_hit.mp3
     {artist} - {album} - {n:02d} - {title}  | DJ Example - Summer Vibes 2024 - 05.mp3
     {year} - {artist} - {title}             | 2024 - DJ Example - My Summer Hit.mp3
-    {title} (modified)                      | My Summer Hit (REUPLOAD) (modified).mp3
+    {title} (modified)                      | My Summer Hit (modified).mp3
 
-4. ПРАКТИЧЕСКИЕ СОВЕТЫ
+3. ПРАКТИЧЕСКИЕ СОВЕТЫ
 --------------------------------------------------------------------------------
-
-    - Чтобы REUPLOAD НЕ попадал в имя файла:
-      Используйте шаблоны БЕЗ {title}: {original}, VK_{n:03d}, modified_{original}
-
-    - Чтобы REUPLOAD БЫЛ в имени файла:
-      Используйте шаблоны С {title}: {title}, {artist} - {title}
 
     - Для сортировки файлов по порядку:
       Начинайте шаблон с номера: {n:03d} - {artist} - {title}
@@ -2115,21 +2074,20 @@ Lossless форматы (без потерь):
     - Любой текст вне скобок остаётся без изменений
     - Недопустимые символы (\\/:*?\"<>|) автоматически заменяются на _
     - Ctrl+C/V/X/A работают во всех текстовых полях программы
+    - Переменные в конструкторе можно удалять как один символ (Backspace/Delete)
 
-5. ТИПИЧНЫЕ СЦЕНАРИИ
+4. ТИПИЧНЫЕ СЦЕНАРИИ
 --------------------------------------------------------------------------------
 
-    Сценарий A: "Хочу просто добавить REUPLOAD в название"
+    Сценарий A: "Просто название трека"
         Шаблон: {title}
-        Настройка REUPLOAD: Да, позиция "После"
-        Результат: My Song (REUPLOAD).mp3
+        Результат: My Song.mp3
 
-    Сценарий B: "REUPLOAD в начале, с номером и исполнителем"
+    Сценарий B: "Исполнитель и название с номером"
         Шаблон: {n:03d} - {artist} - {title}
-        Настройка REUPLOAD: Да, позиция "До"
-        Результат: 005 - DJ Example - (REUPLOAD) My Song.mp3
+        Результат: 005 - DJ Example - My Song.mp3
 
-    Сценарий C: "Без REUPLOAD, только нумерованные треки"
+    Сценарий C: "Только нумерованные треки"
         Шаблон: track_{n:03d}
         Результат: track_005.mp3
 
