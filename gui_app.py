@@ -364,6 +364,10 @@ class VKModifierApp:
         self._preview_timer = None
         self._mode = 'modifier'
         self.user_templates = []
+        # Zoom and navigation state for waveform preview
+        self._wave_zoom = 1.0
+        self._wave_offset = 0.0  # 0.0 to 1.0, offset in normalized sample coordinates
+        self._wave_drag_start = None
 
         self._load_config()
         self._create_vars()
@@ -492,7 +496,7 @@ class VKModifierApp:
         pw = ttk.PanedWindow(self.root, orient='horizontal')
         pw.pack(fill='both', expand=True, padx=4, pady=4)
 
-        left = ttk.Frame(pw, width=280)
+        left = ttk.Frame(pw, width=320)
         left.pack_propagate(False)
         pw.add(left, weight=0)
         self._build_left(left)
@@ -500,6 +504,9 @@ class VKModifierApp:
         right_outer = ttk.Frame(pw)
         pw.add(right_outer, weight=1)
         self._build_right(right_outer)
+        
+        # Bind resize event to prevent layout artifacts
+        pw.bind('<Configure>', lambda e: self._on_pane_resize(e))
 
     def _switch_mode(self, mode):
         self._mode = mode
@@ -1410,6 +1417,24 @@ Lossless форматы (без потерь):
 
         self.canvas_before.bind('<Configure>', lambda e: self._schedule_redraw())
         self.canvas_after.bind('<Configure>', lambda e: self._schedule_redraw())
+        
+        # Zoom and navigation bindings for canvas_before
+        self.canvas_before.bind('<MouseWheel>', self._on_wave_mousewheel)
+        self.canvas_before.bind('<Button-4>', self._on_wave_mousewheel)  # Linux scroll up
+        self.canvas_before.bind('<Button-5>', self._on_wave_mousewheel)  # Linux scroll down
+        self.canvas_before.bind('<ButtonPress-1>', self._on_wave_press)
+        self.canvas_before.bind('<B1-Motion>', self._on_wave_drag)
+        self.canvas_before.bind('<ButtonRelease-1>', self._on_wave_release)
+        self.root.bind('<KeyPress-Shift_L>', self._on_shift_press)
+        self.root.bind('<KeyRelease-Shift_L>', self._on_shift_release)
+        self.root.bind('<KeyPress-Shift_R>', self._on_shift_press)
+        self.root.bind('<KeyRelease-Shift_R>', self._on_shift_release)
+        self.root.bind('<KeyPress-plus>', self._on_zoom_key)
+        self.root.bind('<KeyPress-minus>', self._on_zoom_key)
+        self.root.bind('<KeyPress-equal>', self._on_zoom_key)  # US keyboard
+        self.root.bind('<KeyPress-underscore>', self._on_zoom_key)  # Shift+- on some keyboards
+        
+        self._shift_pressed = False
 
     def _load_waveform_for_file(self, file_path):
         if self._waveform_loading:
@@ -1560,6 +1585,20 @@ Lossless форматы (без потерь):
         draw_h = mid - margin
         n = len(samples)
 
+        # Apply zoom and offset
+        zoom = max(1.0, self._wave_zoom)
+        visible_samples = int(n / zoom)
+        start_idx = int(self._wave_offset * (n - visible_samples)) if n > visible_samples else 0
+        end_idx = min(start_idx + visible_samples, n)
+        
+        if end_idx <= start_idx:
+            start_idx = 0
+            end_idx = n
+        
+        view_samples = samples[start_idx:end_idx]
+        if not view_samples:
+            return
+
         canvas.create_line(0, mid, w, mid, fill='#2a2a2a', width=1)
 
         r = int(color[1:3], 16)
@@ -1568,11 +1607,11 @@ Lossless форматы (без потерь):
         inner_color = f'#{int(r*0.55):02x}{int(g*0.55):02x}{int(b*0.55):02x}'
 
         for x in range(w):
-            i0 = int(x * n / w)
-            i1 = int((x + 1) * n / w)
+            i0 = int(x * len(view_samples) / w)
+            i1 = int((x + 1) * len(view_samples) / w)
             if i1 <= i0:
                 i1 = i0 + 1
-            chunk = samples[i0:min(i1, n)]
+            chunk = view_samples[i0:min(i1, len(view_samples))]
             if not chunk:
                 continue
 
@@ -1596,12 +1635,107 @@ Lossless форматы (без потерь):
 
             if y_rms_top < y_rms_bot:
                 canvas.create_line(x, y_rms_top, x, y_rms_bot, fill=color)
+        
+        # Draw zoom indicator
+        if zoom > 1.0:
+            indicator_text = f"Zoom: {zoom:.1f}x"
+            canvas.create_text(10, 10, text=indicator_text, anchor='nw', fill='#666', font=('', 8))
 
     def _clear_waveforms(self):
         self._waveform_samples = None
+        self._wave_zoom = 1.0
+        self._wave_offset = 0.0
         self._draw_placeholder(self.canvas_before, 'Выберите файл')
         self._draw_placeholder(self.canvas_after, '')
         self.lbl_wave_status.config(text='Выберите файл')
+
+    def _on_wave_mousewheel(self, event):
+        """Handle mouse wheel for zoom (Ctrl+Wheel) or navigation (Shift+Wheel)"""
+        if self._waveform_samples is None:
+            return
+        
+        if hasattr(event, 'delta'):
+            delta = event.delta
+        elif event.num == 4:
+            delta = 120
+        elif event.num == 5:
+            delta = -120
+        else:
+            return
+        
+        # Check if Ctrl is pressed (via state)
+        ctrl_pressed = (event.state & 0x0004) != 0
+        
+        if ctrl_pressed:
+            # Zoom in/out
+            zoom_step = 0.1
+            if delta > 0:
+                self._wave_zoom = min(10.0, self._wave_zoom + zoom_step)
+            else:
+                self._wave_zoom = max(1.0, self._wave_zoom - zoom_step)
+            self._schedule_redraw()
+        elif self._shift_pressed:
+            # Navigate left/right with Shift+Wheel
+            nav_step = 0.05
+            if delta > 0:
+                self._wave_offset = max(0.0, self._wave_offset - nav_step)
+            else:
+                self._wave_offset = min(1.0, self._wave_offset + nav_step)
+            self._schedule_redraw()
+
+    def _on_shift_press(self, event):
+        self._shift_pressed = True
+
+    def _on_shift_release(self, event):
+        self._shift_pressed = False
+
+    def _on_zoom_key(self, event):
+        """Handle +/- keys for zoom"""
+        if self._waveform_samples is None:
+            return
+        
+        zoom_step = 0.2
+        if event.keysym in ('plus', 'equal'):
+            self._wave_zoom = min(10.0, self._wave_zoom + zoom_step)
+        elif event.keysym in ('minus', 'underscore'):
+            self._wave_zoom = max(1.0, self._wave_zoom - zoom_step)
+        self._schedule_redraw()
+
+    def _on_wave_press(self, event):
+        """Start dragging for navigation"""
+        if self._waveform_samples is None:
+            return
+        self._wave_drag_start = event.x
+
+    def _on_wave_drag(self, event):
+        """Drag to navigate through the waveform"""
+        if self._waveform_samples is None or self._wave_drag_start is None:
+            return
+        
+        dx = event.x - self._wave_drag_start
+        w = self.canvas_before.winfo_width()
+        if w <= 0:
+            return
+        
+        # Convert pixel movement to offset change
+        n = len(self._waveform_samples)
+        zoom = max(1.0, self._wave_zoom)
+        visible_samples = int(n / zoom)
+        
+        if visible_samples >= n:
+            return
+        
+        # How much of the full track is visible?
+        visible_fraction = visible_samples / n
+        pixels_per_full_track = w / visible_fraction if visible_fraction > 0 else w
+        
+        offset_change = -dx / pixels_per_full_track
+        self._wave_offset = max(0.0, min(1.0, self._wave_offset + offset_change))
+        self._wave_drag_start = event.x
+        self._schedule_redraw()
+
+    def _on_wave_release(self, event):
+        self._wave_drag_start = None
 
     def _build_basic_tab(self, nb):
         f = ttk.Frame(nb, padding=6)
@@ -2442,6 +2576,12 @@ Lossless форматы (без потерь):
         self._update_stats()
         self._clear_waveforms()
         self._log("Список очищен", 'warning')
+
+    def _on_pane_resize(self, event):
+        """Handle pane resize to prevent layout artifacts"""
+        # Force update of canvas waveforms on resize
+        if hasattr(self, 'canvas_before') and self._waveform_samples:
+            self._schedule_redraw()
 
     def _update_stats(self):
         n = len(self.input_files)
