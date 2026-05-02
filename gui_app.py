@@ -566,15 +566,17 @@ class VKModifierApp:
         ttk.Checkbutton(out_frame, text="Удалять оригиналы после конвертации", variable=self.v_conv_delete).pack(anchor='w', pady=2)
 
         info_frame = ttk.LabelFrame(f, text="Информация о поддерживаемых форматах", padding=8)
-        info_frame.pack(fill='both', expand=True, padx=6, pady=4)
+        info_frame.pack(fill='x', padx=6, pady=4)
 
-        self.format_info_text = tk.Text(info_frame, height=10, font=('Courier', 9), wrap='word', state='disabled')
-        scroll = ttk.Scrollbar(info_frame, orient='vertical', command=self.format_info_text.yview)
-        self.format_info_text.configure(yscrollcommand=scroll.set)
-        scroll.pack(side='right', fill='y')
-        self.format_info_text.pack(fill='both', expand=True)
-
-        self._update_format_info()
+        info_text = (
+            "Поддерживаемые форматы (26 форматов):\n"
+            "Lossy: MP3, AAC/M4A, OGG Vorbis, Opus, WMA, AC3, DTS, MP2, Musepack, Speex, AMR\n"
+            "Lossless: FLAC, WAV, AIFF, ALAC, WavPack, APE, TTA, SHN, OGG FLAC\n"
+            "Контейнеры/Другие: MKA, CAF, AU\n"
+            "Все форматы конвертируются между собой в любых направлениях."
+        )
+        self.format_info_label = ttk.Label(info_frame, text=info_text, font=('Courier', 9), justify='left')
+        self.format_info_label.pack(fill='x')
         self._on_format_changed()
 
         action_frame = ttk.Frame(f)
@@ -596,19 +598,6 @@ class VKModifierApp:
         self.conv_log_text.tag_config('success', foreground='#007700')
         self.conv_log_text.tag_config('warning', foreground='#aa6600')
         self.conv_log_text.tag_config('error', foreground='#cc0000')
-
-    def _update_format_info(self):
-        self.format_info_text.config(state='normal')
-        self.format_info_text.delete('1.0', 'end')
-        info = (
-            "Поддерживаемые форматы (26 форматов):\n"
-            "Lossy: MP3, AAC/M4A, OGG Vorbis, Opus, WMA, AC3, DTS, MP2, Musepack, Speex, AMR\n"
-            "Lossless: FLAC, WAV, AIFF, ALAC, WavPack, APE, TTA, SHN, OGG FLAC\n"
-            "Контейнеры/Другие: MKA, CAF, AU\n"
-            "Все форматы конвертируются между собой в любых направлениях."
-        )
-        self.format_info_text.insert('1.0', info)
-        self.format_info_text.config(state='disabled')
 
     def _on_format_changed(self, event=None):
         fmt = self.v_conv_format.get()
@@ -843,13 +832,11 @@ class VKModifierApp:
         sb_tpl.config(command=self.template_listbox.yview)
         sb_tpl.pack(side='right', fill='y')
         self.template_listbox.pack(side='left', fill='both', expand=True)
-        self.template_listbox.bind('<<ListboxSelect>>', self._on_template_select)
-        self.template_listbox.bind('<Double-Button-1>', lambda e: self._use_selected_template())
+        self.template_listbox.bind('<<ListboxSelect>>', self._on_template_select_auto)
 
         list_buttons_frame = ttk.Frame(left_column)
         list_buttons_frame.pack(side='top', fill='x', pady=(4, 0))
-        ttk.Button(list_buttons_frame, text="Использовать", command=self._use_selected_template).pack(side='left', padx=2, expand=True, fill='x')
-        ttk.Button(list_buttons_frame, text="Удалить", command=self._delete_selected_template).pack(side='left', padx=2, expand=True, fill='x')
+        ttk.Button(list_buttons_frame, text="Создать пресет", command=self._create_preset_dialog).pack(side='left', padx=2, expand=True, fill='x')
 
         constr_frame = ttk.LabelFrame(mid_frame, text="Конструктор шаблона", padding=6)
         constr_frame.pack(side='right', fill='both', expand=True)
@@ -883,9 +870,9 @@ class VKModifierApp:
 
         save_frame = ttk.Frame(constr_frame)
         save_frame.pack(fill='x')
-        ttk.Label(save_frame, text="Имя шаблона:").pack(side='left', padx=(0, 4))
-        self.entry_template_name = ttk.Entry(save_frame, textvariable=self.v_new_template_name, width=20)
-        self.entry_template_name.pack(side='left', padx=(0, 4))
+        ttk.Label(save_frame, text="Описание (необязательно):").pack(side='left', padx=(0, 4))
+        self.entry_template_desc = ttk.Entry(save_frame, width=25)
+        self.entry_template_desc.pack(side='left', padx=(0, 4))
         ttk.Button(save_frame, text="Сохранить шаблон", command=self._save_user_template).pack(side='left')
 
         self._refresh_template_list()
@@ -989,6 +976,7 @@ class VKModifierApp:
     def _save_user_template(self):
         name = self.v_new_template_name.get().strip()
         pattern = self._get_text_template_content().strip()
+        desc = self.entry_template_desc.get().strip()
         if not name:
             messagebox.showwarning("Внимание", "Введите имя шаблона")
             return
@@ -1004,18 +992,32 @@ class VKModifierApp:
         for tpl in self.user_templates:
             if tpl['name'] == name:
                 tpl['pattern'] = pattern
+                if desc:
+                    tpl['description'] = desc
                 self._refresh_template_list()
                 self._save_config()
                 self._log(f"Шаблон '{name}' обновлён", 'success')
                 return
 
-        self.user_templates.append({'name': name, 'pattern': pattern})
+        self.user_templates.append({'name': name, 'pattern': pattern, 'description': desc})
         self._refresh_template_list()
         self._save_config()
         self.v_new_template_name.set('')
+        self.entry_template_desc.delete(0, 'end')
         self.text_template_pattern.delete('1.0', 'end')
         self._update_live_preview_from_text()
         self._log(f"Шаблон '{name}' сохранён", 'success')
+
+    def _on_template_select_auto(self, event):
+        sel = self.template_listbox.curselection()
+        if not sel:
+            return
+        idx = sel[0]
+        if idx < len(self.user_templates):
+            pattern = self.user_templates[idx]['pattern']
+            self.v_filename_template.set(pattern)
+            self._update_name_preview()
+            self._log(f"Шаблон '{self.user_templates[idx]['name']}' активирован", 'success')
 
     def _on_template_select(self, event):
         sel = self.template_listbox.curselection()
@@ -1027,33 +1029,46 @@ class VKModifierApp:
             self.v_new_template_name.set(tpl['name'])
             self.text_template_pattern.delete('1.0', 'end')
             self.text_template_pattern.insert('1.0', tpl['pattern'])
+            if 'description' in tpl:
+                self.entry_template_desc.delete(0, 'end')
+                self.entry_template_desc.insert(0, tpl['description'])
             self._apply_variable_tags()
             self._update_live_preview_from_text()
 
-    def _use_selected_template(self):
-        sel = self.template_listbox.curselection()
-        if not sel:
-            messagebox.showinfo("Внимание", "Выберите шаблон в списке")
-            return
-        idx = sel[0]
-        if idx < len(self.user_templates):
-            pattern = self.user_templates[idx]['pattern']
-            self.v_filename_template.set(pattern)
-            self._update_name_preview()
-            self._log(f"Шаблон '{self.user_templates[idx]['name']}' активирован", 'success')
+    def _create_preset_dialog(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Создать пресет")
+        dialog.geometry("350x180")
+        dialog.transient(self.root)
+        dialog.grab_set()
 
-    def _delete_selected_template(self):
-        sel = self.template_listbox.curselection()
-        if not sel:
-            return
-        idx = sel[0]
-        if idx < len(self.user_templates):
-            name = self.user_templates[idx]['name']
-            if messagebox.askyesno("Подтверждение", f"Удалить шаблон '{name}'?"):
-                self.user_templates.pop(idx)
-                self._refresh_template_list()
-                self._save_config()
-                self._log(f"Шаблон '{name}' удалён", 'warning')
+        ttk.Label(dialog, text="Название пресета:").pack(pady=(10, 5))
+        name_var = tk.StringVar()
+        name_entry = ttk.Entry(dialog, textvariable=name_var, width=40)
+        name_entry.pack(pady=5)
+
+        ttk.Label(dialog, text="Описание (необязательно):").pack(pady=(5, 5))
+        desc_var = tk.StringVar()
+        desc_entry = ttk.Entry(dialog, textvariable=desc_var, width=40)
+        desc_entry.pack(pady=5)
+
+        def on_save():
+            name = name_var.get().strip()
+            desc = desc_var.get().strip()
+            if not name:
+                messagebox.showwarning("Внимание", "Введите название пресета")
+                return
+            data = {'name': name, 'date': datetime.now().isoformat(), 'settings': self._collect_settings()}
+            if desc:
+                data['description'] = desc
+            self.saved_presets.append(data)
+            self._refresh_preset_list()
+            self._save_config()
+            self._log(f"Пресет '{name}' сохранён", 'success')
+            dialog.destroy()
+
+        ttk.Button(dialog, text="Сохранить", command=on_save).pack(pady=10)
+        name_entry.focus()
 
     def _refresh_template_list(self):
         self.template_listbox.delete(0, 'end')
