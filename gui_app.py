@@ -468,7 +468,6 @@ class VKModifierApp:
         self.v_max_workers = tk.IntVar(value=4)
         self.v_thread_delay = tk.DoubleVar(value=0.0)
         self.v_new_template_name = tk.StringVar()
-        self.v_new_template_pattern = tk.StringVar()
         
         self.v_conv_format = tk.StringVar(value='mp3')
         self.v_conv_quality = tk.StringVar(value='320 kbps (CBR)')
@@ -594,7 +593,6 @@ class VKModifierApp:
         self._build_track_info_section(row1)
 
         self._build_waveform_section(f)
-        self._build_preset_buttons(f)
         self._build_methods_notebook()
 
         self.lbl_conflict = ttk.Label(f, text="", foreground='red', wraplength=800, justify='left')
@@ -1123,13 +1121,10 @@ Lossless форматы (без потерь):
         self.v_reupload_pos.trace_add('write', lambda *_: self._update_name_preview())
 
     def _insert_template_var(self, var_text):
+        """Устаревший метод, теперь используется _insert_template_var_tagged"""
         try:
-            pos = self.entry_template_pattern.index('insert')
-            current = self.v_new_template_pattern.get()
-            new_text = current[:pos] + var_text + current[pos:]
-            self.v_new_template_pattern.set(new_text)
-            self.entry_template_pattern.icursor(pos + len(var_text))
-            self.entry_template_pattern.focus_set()
+            self.text_template_pattern.insert('insert', var_text, 'variable')
+            self._update_live_preview_from_text()
         except Exception:
             pass
 
@@ -1278,7 +1273,7 @@ Lossless форматы (без потерь):
             )
 
     def _live_preview_template(self):
-        tpl = self.v_new_template_pattern.get()
+        tpl = self._get_text_template_content()
         if not tpl.strip():
             self.lbl_template_live_preview.config(text="Предпросмотр: --")
             return
