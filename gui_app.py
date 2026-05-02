@@ -868,26 +868,9 @@ Lossless форматы (без потерь):
         ttk.Button(btn_row, text="Очистить",                command=self._clear_meta).pack(side='left', padx=2)
 
         r = len(fields) + 1
-        dec_row = ttk.Frame(lf)
-        dec_row.grid(row=r, column=0, columnspan=2, sticky='ew', pady=(4, 0))
-        ttk.Checkbutton(dec_row, text="Добавить текст:", variable=self.v_reupload,
-                        command=self._update_name_preview).pack(side='left')
-        ttk.Entry(dec_row, textvariable=self.v_reupload_text, width=14).pack(side='left', padx=2)
-        ttk.Radiobutton(dec_row, text="До", variable=self.v_reupload_pos,
-                        value='before', command=self._update_name_preview).pack(side='left')
-        ttk.Radiobutton(dec_row, text="После", variable=self.v_reupload_pos,
-                        value='after', command=self._update_name_preview).pack(side='left')
-        self.v_reupload_text.trace_add('write', lambda *_: self._update_name_preview())
-
-        r += 1
         self.lbl_title_preview = ttk.Label(lf, text="Предпросмотр: —",
                                            foreground='#888', font=('', 8))
         self.lbl_title_preview.grid(row=r, column=0, columnspan=2, sticky='w', pady=(2, 0))
-
-        r += 1
-        self.status_reupload = ttk.Label(lf, text="Title без изменений", 
-                                          foreground='#666', font=('', 8))
-        self.status_reupload.grid(row=r, column=0, columnspan=2, sticky='w', pady=(2, 0))
 
     def _update_name_preview(self):
         title_raw = self.v_title.get()
@@ -895,28 +878,18 @@ Lossless форматы (без потерь):
         album = self.v_album.get()
         year = self.v_year.get()
         
-        title_with_reupload = title_raw
-        if self.v_reupload.get():
-            text = self.v_reupload_text.get()
-            pos = self.v_reupload_pos.get()
-            if title_raw:
-                if pos == 'before':
-                    title_with_reupload = f"{text} {title_raw}"
-                else:
-                    title_with_reupload = f"{title_raw} {text}"
+        # Текст REUPLOAD теперь всегда добавляется автоматически если есть переменные в шаблоне
+        text = self.v_reupload_text.get()
+        pos = self.v_reupload_pos.get()
+        if title_raw:
+            if pos == 'before':
+                title_with_reupload = f"{text} {title_raw}"
             else:
-                title_with_reupload = text
+                title_with_reupload = f"{title_raw} {text}"
+        else:
+            title_with_reupload = text
         
         display_title = title_with_reupload if title_with_reupload else "(нет названия)"
-        
-        reupload_info = ""
-        if self.v_reupload.get():
-            reupload_info = f"\n   + REUPLOAD текст '{self.v_reupload_text.get()}' добавлен в {{title}}"
-        
-        try:
-            self.status_reupload.config(text=f"Title после обработки: {display_title}{reupload_info}")
-        except AttributeError:
-            pass
         
         tpl = self.v_filename_template.get() or 'VK_{n:03d}_custom'
         
@@ -956,11 +929,10 @@ Lossless форматы (без потерь):
             preview_text = f"Пример при n=1:  {fname_simple}\n"
             preview_text += f"Пример при n=42: {fname_padded}"
             
-            if self.v_reupload.get():
-                if '{title}' not in tpl:
-                    preview_text += f"\n\nВНИМАНИЕ: В шаблоне НЕТ {{title}}, поэтому текст '{self.v_reupload_text.get()}' НЕ попадёт в имя файла!"
-                else:
-                    preview_text += f"\n\nOK: Текст '{self.v_reupload_text.get()}' будет добавлен в имя файла через {{title}}"
+            if '{title}' not in tpl:
+                preview_text += f"\n\nВНИМАНИЕ: В шаблоне НЕТ {{title}}, поэтому текст '{self.v_reupload_text.get()}' НЕ попадёт в имя файла!"
+            else:
+                preview_text += f"\n\nOK: Текст '{self.v_reupload_text.get()}' будет добавлен в имя файла через {{title}}"
                     
         except (KeyError, ValueError) as e:
             preview_text = f"ОШИБКА в шаблоне: {e}\n"
@@ -984,30 +956,6 @@ Lossless форматы (без потерь):
                                       font=('Courier', 9), wrap='none')
         self.txt_track_info.pack(fill='both', expand=True)
         self._update_track_info(-1)
-
-    def _build_preset_buttons(self, parent):
-        lf = ttk.LabelFrame(parent, text="Быстрые пресеты", padding=4)
-        lf.pack(fill='x', padx=6, pady=4)
-        self._quick_presets_frame = ttk.Frame(lf)
-        self._quick_presets_frame.pack(fill='x')
-        self._refresh_quick_presets()
-
-    def _refresh_quick_presets(self):
-        for w in self._quick_presets_frame.winfo_children():
-            w.destroy()
-        if not self.saved_presets:
-            ttk.Label(self._quick_presets_frame, text="Нет сохранённых пресетов",
-                      foreground='gray', font=('TkDefaultFont', 8, 'italic')).pack(side='left', padx=4)
-            return
-        for i, p in enumerate(self.saved_presets):
-            name = p.get('name', f'Preset {i+1}')
-            ttk.Button(self._quick_presets_frame, text=name,
-                       command=lambda idx=i: self._apply_user_preset(idx)).pack(side='left', padx=4)
-
-    def _apply_user_preset(self, index):
-        self.preset_listbox.selection_clear(0, 'end')
-        self.preset_listbox.selection_set(index)
-        self._load_selected_preset()
 
     def _build_methods_notebook(self, nb_parent=None):
         if nb_parent is None:
@@ -1155,43 +1103,11 @@ Lossless форматы (без потерь):
         ttk.Button(save_frame, text="Сохранить шаблон", 
                    command=self._save_user_template).pack(side='left')
         
-        # Добавляем секцию "ДО И ПОСЛЕ" во вкладку имен
-        waveform_in_tab = ttk.LabelFrame(f, text="Предпросмотр формы сигнала", padding=4)
-        waveform_in_tab.pack(fill='x', pady=(8, 0))
-
-        hdr = ttk.Frame(waveform_in_tab)
-        hdr.pack(fill='x', pady=(0, 2))
-        ttk.Label(hdr, text="ДО изменений", font=('', 8, 'bold'),
-                  foreground='#5599ff').pack(side='left', padx=6)
-        self.lbl_wave_status_tab = ttk.Label(hdr, text="Выберите файл",
-                                          foreground='gray', font=('', 8))
-        self.lbl_wave_status_tab.pack(side='left', padx=20)
-        ttk.Label(hdr, text="ПОСЛЕ изменений", font=('', 8, 'bold'),
-                  foreground='#44dd44').pack(side='right', padx=6)
-
-        wave_row = ttk.Frame(waveform_in_tab)
-        wave_row.pack(fill='x')
-        wave_row.columnconfigure(0, weight=1)
-        wave_row.columnconfigure(1, weight=1)
-
-        self.canvas_before_tab = tk.Canvas(wave_row, height=120, bg='#0d1117',
-                                        highlightthickness=1,
-                                        highlightbackground='#30304a')
-        self.canvas_before_tab.grid(row=0, column=0, sticky='ew', padx=(2, 1), pady=2)
-
-        self.canvas_after_tab = tk.Canvas(wave_row, height=120, bg='#0d170d',
-                                       highlightthickness=1,
-                                       highlightbackground='#2a3a2a')
-        self.canvas_after_tab.grid(row=0, column=1, sticky='ew', padx=(1, 2), pady=2)
-
-        self.canvas_before_tab.bind('<Configure>', lambda e: self._schedule_redraw())
-        self.canvas_after_tab.bind('<Configure>', lambda e: self._schedule_redraw())
-        
         info_frame = ttk.LabelFrame(f, text="Справка", padding=4)
         info_frame.pack(fill='x')
         info_text = (
             "Доступные переменные: {n}  {n:03d}  {original}  {title}  {artist}  {album}  {year}\n"
-            "- {title} автоматически включает текст REUPLOAD (если включён)\n"
+            "- {title} автоматически включает текст REUPLOAD\n"
             "- Недопустимые символы \\/:*?\"<>| заменяются на _\n"
             "- Двойной клик по шаблону в списке -- сделать активным\n"
             "- Ctrl+C/V/X/A работают во всех текстовых полях\n"
@@ -2704,8 +2620,6 @@ Lossless форматы (без потерь):
         self.preset_listbox.delete(0, 'end')
         for p in self.saved_presets:
             self.preset_listbox.insert('end', p.get('name', '?'))
-        if hasattr(self, '_quick_presets_frame'):
-            self._refresh_quick_presets()
 
     def _load_selected_preset(self):
         sel = self.preset_listbox.curselection()
