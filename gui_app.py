@@ -741,6 +741,8 @@ class VKModifierApp:
         r = len(fields) + 1
         self.lbl_title_preview = ttk.Label(lf, text="Предпросмотр: —", foreground='#888', font=('', 8))
         self.lbl_title_preview.grid(row=r, column=0, columnspan=2, sticky='w', pady=(2, 0))
+        self.lbl_filename_preview = ttk.Label(lf, text="Имя файла: —", foreground='#007700', font=('Consolas', 9))
+        self.lbl_filename_preview.grid(row=r+1, column=0, columnspan=2, sticky='w', pady=(2, 0))
 
     def _update_name_preview(self):
         title_raw = self.v_title.get()
@@ -771,8 +773,9 @@ class VKModifierApp:
                 artist=self._safe_filename(ex_artist), album=self._safe_filename(ex_album),
                 year=self._safe_filename(str(ex_year))
             ) + '.mp3'
+            self.lbl_filename_preview.config(text=f"Имя файла: {fname_simple}", foreground='#007700')
         except (KeyError, ValueError) as e:
-            fname_simple = None
+            self.lbl_filename_preview.config(text=f"Ошибка шаблона: {e}", foreground='#cc0000')
 
         try:
             self.lbl_title_preview.config(text=f"Предпросмотр: {display_title}")
