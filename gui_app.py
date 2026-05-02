@@ -454,7 +454,6 @@ class VKModifierApp:
         self.v_preserve_cover  = tk.BooleanVar()
         self.v_rename          = tk.BooleanVar(value=True)
         self.v_delete_orig     = tk.BooleanVar()
-        self.v_reupload        = tk.BooleanVar()
         self.v_quality         = tk.StringVar(value='245 kbps (VBR Q0)')
         self.v_title  = tk.StringVar()
         self.v_artist = tk.StringVar()
