@@ -2144,8 +2144,6 @@ Lossless форматы (без потерь):
         text.insert('1.0', help_content)
         text.config(state='disabled')
         
-        ttk.Button(main_frame, text="Закрыть", command=help_win.destroy, width=15).pack(pady=(10, 0))
-        
         help_win.update_idletasks()
         x = self.root.winfo_x() + (self.root.winfo_width() - help_win.winfo_width()) // 2
         y = self.root.winfo_y() + (self.root.winfo_height() - help_win.winfo_height()) // 2
