@@ -904,7 +904,12 @@ class VKModifierApp:
         except (KeyError, ValueError):
             return
         idx = self._selected_template_index
+        # Проверяем, изменился ли шаблон
+        if self.user_templates[idx]['pattern'] == pattern:
+            return
         self.user_templates[idx]['pattern'] = pattern
+        # Обновляем переменную шаблона для сохранения в конфиг
+        self.v_filename_template.set(pattern)
         self._refresh_template_list()
         self.template_listbox.selection_clear(0, tk.END)
         self.template_listbox.selection_set(idx)
@@ -1031,6 +1036,8 @@ class VKModifierApp:
             self._apply_variable_tags()
             self._update_live_preview_from_text()
             self._log(f"Шаблон '{tpl['name']}' активирован", 'success')
+            # Сохраняем настройки после выбора шаблона
+            self._save_config()
 
     def _on_template_select(self, event):
         sel = self.template_listbox.curselection()
