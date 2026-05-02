@@ -2345,6 +2345,108 @@ class VKModifierApp:
             pass
         self.root.after(100, self._poll_queue)
 
+    def _get_all_settings_vars(self):
+        """Возвращает словарь со всеми настраиваемыми переменными для сохранения/загрузки"""
+        return {
+            # Методы обработки
+            'pitch_enabled': self.v_pitch,
+            'pitch_value': self.v_pitch_val,
+            'speed_enabled': self.v_speed,
+            'speed_value': self.v_speed_val,
+            'eq_enabled': self.v_eq,
+            'eq_type': self.v_eq_type,
+            'eq_value': self.v_eq_val,
+            'silence_enabled': self.v_silence,
+            'silence_value': self.v_silence_val,
+            'phase_inv_enabled': self.v_phase_inv,
+            'phase_inv_value': self.v_phase_inv_val,
+            'phase_scr_enabled': self.v_phase_scr,
+            'phase_scr_value': self.v_phase_scr_val,
+            'dc_enabled': self.v_dc,
+            'dc_value': self.v_dc_val,
+            'resamp_enabled': self.v_resamp,
+            'resamp_value': self.v_resamp_val,
+            'ultra_enabled': self.v_ultra,
+            'ultra_freq': self.v_ultra_freq,
+            'ultra_level': self.v_ultra_level,
+            'haas_enabled': self.v_haas,
+            'haas_value': self.v_haas_val,
+            'dither_enabled': self.v_dither,
+            'dither_method': self.v_dither_method,
+            'id3pad_enabled': self.v_id3pad,
+            'id3pad_value': self.v_id3pad_val,
+            # Дополнительные методы
+            'spectral_mask_enabled': self.v_spectral_mask,
+            'spectral_mask_sens': self.v_spectral_mask_sens,
+            'spectral_mask_att': self.v_spectral_mask_att,
+            'spectral_mask_peaks': self.v_spectral_mask_peaks,
+            'concert_emu_enabled': self.v_concert_emu,
+            'concert_intensity': self.v_concert_intensity,
+            'midside_enabled': self.v_midside,
+            'midside_mid': self.v_midside_mid,
+            'midside_side': self.v_midside_side,
+            'psycho_noise_enabled': self.v_psycho_noise,
+            'psycho_intensity': self.v_psycho_intensity,
+            'saturation_enabled': self.v_saturation,
+            'saturation_drive': self.v_saturation_drive,
+            'saturation_mix': self.v_saturation_mix,
+            'temp_jitter_enabled': self.v_temp_jitter,
+            'jitter_intensity': self.v_jitter_intensity,
+            'jitter_freq': self.v_jitter_freq,
+            'spec_jitter_enabled': self.v_spec_jitter,
+            'spec_jitter_count': self.v_spec_jitter_count,
+            'spec_jitter_att': self.v_spec_jitter_att,
+            # Инфразвуковой генератор
+            'vk_infra_enabled': self.v_vk_infra,
+            'vk_infra_mode': self.v_vk_infra_mode,
+            'vk_infra_amplitude': self.v_vk_infra_amplitude,
+            'vk_infra_freq': self.v_vk_infra_freq,
+            'vk_infra_mod_freq': self.v_vk_infra_mod_freq,
+            'vk_infra_mod_depth': self.v_vk_infra_mod_depth,
+            'vk_infra_phase_shift': self.v_vk_infra_phase_shift,
+            'vk_infra_waveform': self.v_vk_infra_waveform,
+            'vk_infra_adaptive': self.v_vk_infra_adaptive,
+            'vk_infra_h1': self.v_vk_infra_h1,
+            'vk_infra_h2': self.v_vk_infra_h2,
+            'vk_infra_h3': self.v_vk_infra_h3,
+            # Обрезка и фрагменты
+            'trim_enabled': self.v_trim,
+            'trim_value': self.v_trim_val,
+            'cut_enabled': self.v_cut,
+            'cut_pos': self.v_cut_pos,
+            'cut_dur': self.v_cut_dur,
+            'fade_enabled': self.v_fade,
+            'fade_value': self.v_fade_val,
+            'merge_enabled': self.v_merge,
+            'extra_file': self.v_extra,
+            'broken_enabled': self.v_broken,
+            'broken_time': self.v_broken_t,
+            # Специальные опции
+            'bitrate_jitter': self.v_bitrate_j,
+            'frame_shift': self.v_frame_sh,
+            'fake_meta': self.v_fake_meta,
+            'reorder': self.v_reorder,
+            # Метаданные и вывод
+            'preserve_meta': self.v_preserve_meta,
+            'preserve_cover': self.v_preserve_cover,
+            'rename': self.v_rename,
+            'delete_orig': self.v_delete_orig,
+            'quality': self.v_quality,
+            'title': self.v_title,
+            'artist': self.v_artist,
+            'album': self.v_album,
+            'year': self.v_year,
+            'genre': self.v_genre,
+            'filename_template': self.v_filename_template,
+            # Производительность
+            'max_workers': self.v_max_workers,
+            'thread_delay': self.v_thread_delay,
+            # Конвертер
+            'conv_format': self.v_conv_format,
+            'conv_quality': self.v_conv_quality,
+            'conv_delete': self.v_conv_delete,
+        }
+
     def _load_config(self):
         try:
             if os.path.exists(CONFIG_FILE):
@@ -2355,16 +2457,38 @@ class VKModifierApp:
                 self.user_templates = cfg.get('user_templates', [])
                 if not self.user_templates:
                     self.user_templates = [{'name': f'Default {i+1}', 'pattern': p} for i, p in enumerate(DEFAULT_TEMPLATES)]
+                
+                # Загружаем все настройки
+                settings = cfg.get('settings', {})
+                all_vars = self._get_all_settings_vars()
+                for key, var in all_vars.items():
+                    if key in settings:
+                        value = settings[key]
+                        if isinstance(var, tk.BooleanVar):
+                            var.set(bool(value))
+                        elif isinstance(var, tk.IntVar):
+                            var.set(int(value))
+                        elif isinstance(var, tk.DoubleVar):
+                            var.set(float(value))
+                        elif isinstance(var, tk.StringVar):
+                            var.set(str(value) if value is not None else '')
         except Exception:
             self.user_templates = [{'name': f'Default {i+1}', 'pattern': p} for i, p in enumerate(DEFAULT_TEMPLATES)]
 
     def _save_config(self):
         try:
+            # Собираем все настройки
+            settings = {}
+            all_vars = self._get_all_settings_vars()
+            for key, var in all_vars.items():
+                settings[key] = var.get()
+            
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
                 json.dump({
                     'output_dir': self.output_dir,
                     'presets': self.saved_presets,
-                    'user_templates': self.user_templates
+                    'user_templates': self.user_templates,
+                    'settings': settings
                 }, f, indent=2, ensure_ascii=False)
         except Exception:
             pass
