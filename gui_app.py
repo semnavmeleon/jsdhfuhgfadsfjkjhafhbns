@@ -1099,10 +1099,23 @@ Lossless форматы (без потерь):
         constr_frame.pack(side='right', fill='both', expand=True)
         
         ttk.Label(constr_frame, text="Шаблон:", font=('', 9, 'bold')).pack(anchor='w')
-        self.entry_template_pattern = ttk.Entry(constr_frame, textvariable=self.v_new_template_pattern,
-                                                font=('Consolas', 10), width=35)
-        self.entry_template_pattern.pack(fill='x', pady=(2, 4))
-        self.v_new_template_pattern.trace_add('write', lambda *_: self._live_preview_template())
+        
+        # Создаём текстовый виджет с поддержкой тегов для цельных переменных
+        self.text_template_pattern = tk.Text(constr_frame, font=('Consolas', 10), width=35, height=3,
+                                              wrap='word', undo=True, autoseparators=True)
+        self.text_template_pattern.pack(fill='x', pady=(2, 4))
+        
+        # Настройка тегов для переменных
+        self.text_template_pattern.tag_configure('variable', background='#e0e7ff', foreground='#3730a3',
+                                                  borderwidth=1, relief='raised')
+        self.text_template_pattern.tag_configure('variable_sel', background='#6366f1', foreground='white')
+        
+        # Привязка событий для работы с переменными как цельными объектами
+        self.text_template_pattern.bind('<KeyRelease>', self._on_text_template_change)
+        self.text_template_pattern.bind('<KeyPress-BackSpace>', self._on_variable_backspace)
+        self.text_template_pattern.bind('<KeyPress-Delete>', self._on_variable_delete)
+        self.text_template_pattern.bind('<KeyPress-space>', self._on_text_template_change)
+        self.text_template_pattern.bind('<KeyPress-Return>', self._on_text_template_change)
         
         vars_label = ttk.Label(constr_frame, text="Быстрая вставка переменных:", 
                                font=('', 8, 'bold'), foreground='#666')
@@ -1123,7 +1136,7 @@ Lossless форматы (без потерь):
         
         for i, (var_text, var_desc) in enumerate(variables):
             btn = ttk.Button(vars_frame, text=var_text, width=10,
-                            command=lambda vt=var_text: self._insert_template_var(vt))
+                            command=lambda vt=var_text: self._insert_template_var_tagged(vt))
             btn.grid(row=i // 4, column=i % 4, padx=2, pady=2, sticky='ew')
         
         preview_live_frame = ttk.Frame(constr_frame, relief='sunken', borderwidth=1)
@@ -1142,6 +1155,38 @@ Lossless форматы (без потерь):
         ttk.Button(save_frame, text="Сохранить шаблон", 
                    command=self._save_user_template).pack(side='left')
         
+        # Добавляем секцию "ДО И ПОСЛЕ" во вкладку имен
+        waveform_in_tab = ttk.LabelFrame(f, text="Предпросмотр формы сигнала", padding=4)
+        waveform_in_tab.pack(fill='x', pady=(8, 0))
+
+        hdr = ttk.Frame(waveform_in_tab)
+        hdr.pack(fill='x', pady=(0, 2))
+        ttk.Label(hdr, text="ДО изменений", font=('', 8, 'bold'),
+                  foreground='#5599ff').pack(side='left', padx=6)
+        self.lbl_wave_status_tab = ttk.Label(hdr, text="Выберите файл",
+                                          foreground='gray', font=('', 8))
+        self.lbl_wave_status_tab.pack(side='left', padx=20)
+        ttk.Label(hdr, text="ПОСЛЕ изменений", font=('', 8, 'bold'),
+                  foreground='#44dd44').pack(side='right', padx=6)
+
+        wave_row = ttk.Frame(waveform_in_tab)
+        wave_row.pack(fill='x')
+        wave_row.columnconfigure(0, weight=1)
+        wave_row.columnconfigure(1, weight=1)
+
+        self.canvas_before_tab = tk.Canvas(wave_row, height=120, bg='#0d1117',
+                                        highlightthickness=1,
+                                        highlightbackground='#30304a')
+        self.canvas_before_tab.grid(row=0, column=0, sticky='ew', padx=(2, 1), pady=2)
+
+        self.canvas_after_tab = tk.Canvas(wave_row, height=120, bg='#0d170d',
+                                       highlightthickness=1,
+                                       highlightbackground='#2a3a2a')
+        self.canvas_after_tab.grid(row=0, column=1, sticky='ew', padx=(1, 2), pady=2)
+
+        self.canvas_before_tab.bind('<Configure>', lambda e: self._schedule_redraw())
+        self.canvas_after_tab.bind('<Configure>', lambda e: self._schedule_redraw())
+        
         info_frame = ttk.LabelFrame(f, text="Справка", padding=4)
         info_frame.pack(fill='x')
         info_text = (
@@ -1149,7 +1194,8 @@ Lossless форматы (без потерь):
             "- {title} автоматически включает текст REUPLOAD (если включён)\n"
             "- Недопустимые символы \\/:*?\"<>| заменяются на _\n"
             "- Двойной клик по шаблону в списке -- сделать активным\n"
-            "- Ctrl+C/V/X/A работают во всех текстовых полях"
+            "- Ctrl+C/V/X/A работают во всех текстовых полях\n"
+            "- Переменные можно удалять как один символ (Backspace/Delete)"
         )
         ttk.Label(info_frame, text=info_text, foreground='#888', 
                   font=('', 7), justify='left').pack(anchor='w')
@@ -1170,6 +1216,150 @@ Lossless форматы (без потерь):
             self.entry_template_pattern.focus_set()
         except Exception:
             pass
+
+    def _insert_template_var_tagged(self, var_text):
+        """Вставляет переменную как цельный тегированный объект"""
+        try:
+            self.text_template_pattern.insert('insert', var_text, 'variable')
+            self._update_live_preview_from_text()
+        except Exception:
+            pass
+
+    def _get_text_template_content(self):
+        """Получает содержимое текстового поля как обычную строку"""
+        try:
+            content = self.text_template_pattern.get('1.0', 'end-1c')
+            return content
+        except Exception:
+            return ''
+
+    def _on_text_template_change(self, event=None):
+        """Обработка изменений в текстовом поле шаблона"""
+        try:
+            # Проверяем и применяем теги к переменным
+            self._apply_variable_tags()
+            self._update_live_preview_from_text()
+        except Exception:
+            pass
+
+    def _apply_variable_tags(self):
+        """Применяет теги ко всем переменным в тексте"""
+        try:
+            content = self.text_template_pattern.get('1.0', 'end-1c')
+            
+            # Удаляем все старые теги variable
+            self.text_template_pattern.tag_remove('variable', '1.0', 'end')
+            
+            # Находим все переменные и применяем теги
+            import re
+            var_pattern = r'\{[^}]+\}'
+            for match in re.finditer(var_pattern, content):
+                start_idx = f"1.0+{match.start()}c"
+                end_idx = f"1.0+{match.end()}c"
+                self.text_template_pattern.tag_add('variable', start_idx, end_idx)
+        except Exception:
+            pass
+
+    def _on_variable_backspace(self, event=None):
+        """Удаляет переменную целиком при нажатии Backspace"""
+        try:
+            cursor_pos = self.text_template_pattern.index('insert')
+            line, col = map(int, cursor_pos.split('.'))
+            
+            # Получаем содержимое строки
+            line_content = self.text_template_pattern.get(f"{line}.0", f"{line}.end")
+            
+            # Проверяем, находится ли курсор сразу после переменной
+            import re
+            var_pattern = r'\{[^}]+\}'
+            
+            # Ищем переменную перед курсором
+            for match in re.finditer(var_pattern, line_content):
+                if match.end() == col:
+                    # Курсор сразу после переменной - удаляем её целиком
+                    start_idx = f"{line}.{match.start()}"
+                    end_idx = f"{line}.{match.end()}"
+                    self.text_template_pattern.delete(start_idx, end_idx)
+                    self.text_template_pattern.mark_set('insert', start_idx)
+                    self._update_live_preview_from_text()
+                    return 'break'  # Запрещаем стандартное поведение
+            
+            # Если не нашли переменную, разрешаем стандартное удаление
+            self._on_text_template_change()
+            return None
+        except Exception:
+            return None
+
+    def _on_variable_delete(self, event=None):
+        """Удаляет переменную целиком при нажатии Delete"""
+        try:
+            cursor_pos = self.text_template_pattern.index('insert')
+            line, col = map(int, cursor_pos.split('.'))
+            
+            # Получаем содержимое строки
+            line_content = self.text_template_pattern.get(f"{line}.0", f"{line}.end")
+            
+            # Проверяем, находится ли курсор перед переменной
+            import re
+            var_pattern = r'\{[^}]+\}'
+            
+            # Ищем переменную после курсора
+            for match in re.finditer(var_pattern, line_content):
+                if match.start() == col:
+                    # Курсор перед переменной - удаляем её целиком
+                    start_idx = f"{line}.{match.start()}"
+                    end_idx = f"{line}.{match.end()}"
+                    self.text_template_pattern.delete(start_idx, end_idx)
+                    self._update_live_preview_from_text()
+                    return 'break'  # Запрещаем стандартное поведение
+            
+            # Если не нашли переменную, разрешаем стандартное удаление
+            self._on_text_template_change()
+            return None
+        except Exception:
+            return None
+
+    def _update_live_preview_from_text(self):
+        """Обновляет предпросмотр на основе содержимого текстового поля"""
+        try:
+            tpl = self._get_text_template_content()
+            if not tpl.strip():
+                self.lbl_template_live_preview.config(text="Предпросмотр: --")
+                return
+            
+            if self.current_index >= 0 and self.current_index < len(self.tracks_info):
+                ti = self.tracks_info[self.current_index]
+                orig = os.path.splitext(os.path.basename(self.input_files[self.current_index]))[0]
+                ex_title = self.v_title.get() or ti.title or orig
+                ex_artist = self.v_artist.get() or ti.artist or ''
+                ex_album = self.v_album.get() or ti.album or ''
+                ex_year = self.v_year.get() or ti.year or ''
+                n_val = self.current_index + 1
+            else:
+                orig = 'example_track'
+                ex_title = 'Example Song'
+                ex_artist = 'Example Artist'
+                ex_album = 'Example Album'
+                ex_year = '2024'
+                n_val = 1
+            
+            fname = tpl.format(
+                n=n_val,
+                original=self._safe_filename(orig),
+                title=self._safe_filename(ex_title),
+                artist=self._safe_filename(ex_artist),
+                album=self._safe_filename(ex_album),
+                year=self._safe_filename(str(ex_year)),
+            ) + '.mp3'
+            self.lbl_template_live_preview.config(
+                text=f"Предпросмотр: {fname}",
+                foreground='#007700'
+            )
+        except (KeyError, ValueError) as e:
+            self.lbl_template_live_preview.config(
+                text=f"Ошибка: {e}",
+                foreground='#cc0000'
+            )
 
     def _live_preview_template(self):
         tpl = self.v_new_template_pattern.get()
@@ -1214,7 +1404,8 @@ Lossless форматы (без потерь):
 
     def _save_user_template(self):
         name = self.v_new_template_name.get().strip()
-        pattern = self.v_new_template_pattern.get().strip()
+        # Получаем шаблон из текстового поля с тегами
+        pattern = self._get_text_template_content().strip()
         
         if not name:
             messagebox.showwarning("Внимание", "Введите имя шаблона")
@@ -1242,7 +1433,8 @@ Lossless форматы (без потерь):
         self._save_config()
         
         self.v_new_template_name.set('')
-        self.v_new_template_pattern.set('')
+        self.text_template_pattern.delete('1.0', 'end')
+        self._update_live_preview_from_text()
         self._log(f"Шаблон '{name}' сохранён", 'success')
 
     def _on_template_select(self, event):
@@ -1253,7 +1445,11 @@ Lossless форматы (без потерь):
         if idx < len(self.user_templates):
             tpl = self.user_templates[idx]
             self.v_new_template_name.set(tpl['name'])
-            self.v_new_template_pattern.set(tpl['pattern'])
+            # Очищаем текстовое поле и вставляем шаблон
+            self.text_template_pattern.delete('1.0', 'end')
+            self.text_template_pattern.insert('1.0', tpl['pattern'])
+            self._apply_variable_tags()
+            self._update_live_preview_from_text()
 
     def _use_selected_template(self):
         sel = self.template_listbox.curselection()
