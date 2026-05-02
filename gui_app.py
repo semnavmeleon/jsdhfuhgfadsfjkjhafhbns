@@ -824,12 +824,6 @@ class VKModifierApp:
         f = ttk.Frame(nb, padding=8)
         nb.add(f, text="Имена")
 
-        # Выбор шаблона (обычный фиксированный блок)
-        ttk.Label(f, text="Выберите шаблон:", font=('', 9, 'bold')).pack(anchor='w')
-        self.cmb_template = ttk.Combobox(f, textvariable=self.v_filename_template, width=60, state='readonly')
-        self.cmb_template.pack(fill='x', pady=(0, 8))
-        self.cmb_template.bind('<<ComboboxSelected>>', lambda e: self._update_name_preview())
-
         # Конструктор и сохранённые шаблоны
         mid_frame = ttk.Frame(f)
         mid_frame.pack(fill='both', expand=True, pady=6)
@@ -1062,15 +1056,6 @@ class VKModifierApp:
         self.template_listbox.delete(0, 'end')
         for tpl in self.user_templates:
             self.template_listbox.insert('end', f"{tpl['name']}  ->  {tpl['pattern']}")
-
-        patterns = [t['pattern'] for t in self.user_templates]
-        if not patterns:
-            patterns = ['VK_{n:03d}_custom']
-
-        self.cmb_template['values'] = patterns
-        current = self.v_filename_template.get()
-        if current not in patterns and patterns:
-            self.v_filename_template.set(patterns[0])
 
     def _build_waveform_section(self, parent):
         lf = ttk.LabelFrame(parent, text="Предпросмотр формы сигнала (Детальный просмотр)", padding=4)
@@ -2279,7 +2264,8 @@ class VKModifierApp:
                 'temporal_jitter': self.v_temp_jitter.get(), 'spectral_jitter': self.v_spec_jitter.get(), 'vk_infrasonic': self.v_vk_infra.get()
             },
             'filename_template': self.v_filename_template.get() or 'VK_{n:03d}_custom',
-            'quality': quality_map[q_idx]
+            'quality': quality_map[q_idx],
+            'rename_files': self.v_rename.get()
         }
 
     def _start(self):
