@@ -1387,8 +1387,8 @@ Lossless форматы (без потерь):
             self.v_filename_template.set(patterns[0])
 
     def _build_waveform_section(self, parent):
-        lf = ttk.LabelFrame(parent, text="Предпросмотр формы сигнала", padding=4)
-        lf.pack(fill='x', padx=6, pady=4)
+        lf = ttk.LabelFrame(parent, text="Предпросмотр формы сигнала (Детальный просмотр)", padding=4)
+        lf.pack(fill='both', expand=True, padx=6, pady=4)
 
         hdr = ttk.Frame(lf)
         hdr.pack(fill='x', pady=(0, 2))
@@ -1401,26 +1401,34 @@ Lossless форматы (без потерь):
                   foreground='#44dd44').pack(side='right', padx=6)
 
         wave_row = ttk.Frame(lf)
-        wave_row.pack(fill='x')
+        wave_row.pack(fill='both', expand=True)
         wave_row.columnconfigure(0, weight=1)
         wave_row.columnconfigure(1, weight=1)
 
-        self.canvas_before = tk.Canvas(wave_row, height=160, bg='#0d1117',
+        # Increased height for better detail visibility
+        self.canvas_before = tk.Canvas(wave_row, height=300, bg='#0d1117',
                                         highlightthickness=1,
                                         highlightbackground='#30304a')
-        self.canvas_before.grid(row=0, column=0, sticky='ew', padx=(2, 1), pady=2)
+        self.canvas_before.grid(row=0, column=0, sticky='nsew', padx=(2, 1), pady=2)
 
-        self.canvas_after = tk.Canvas(wave_row, height=160, bg='#0d170d',
+        self.canvas_after = tk.Canvas(wave_row, height=300, bg='#0d170d',
                                        highlightthickness=1,
                                        highlightbackground='#2a3a2a')
-        self.canvas_after.grid(row=0, column=1, sticky='ew', padx=(1, 2), pady=2)
+        self.canvas_after.grid(row=0, column=1, sticky='nsew', padx=(1, 2), pady=2)
+
+        # Configure row weights to allow expansion
+        wave_row.rowconfigure(0, weight=1)
 
         self.canvas_before.bind('<Configure>', lambda e: self._schedule_redraw())
         self.canvas_after.bind('<Configure>', lambda e: self._schedule_redraw())
         
         # Zoom and navigation bindings for canvas_before
+        # Stop propagation to prevent main window scrolling
+        self.canvas_before.bind('<MouseWheel>', self._stop_event_propagation, add="+")
         self.canvas_before.bind('<MouseWheel>', self._on_wave_mousewheel)
+        self.canvas_before.bind('<Button-4>', self._stop_event_propagation, add="+")
         self.canvas_before.bind('<Button-4>', self._on_wave_mousewheel)  # Linux scroll up
+        self.canvas_before.bind('<Button-5>', self._stop_event_propagation, add="+")
         self.canvas_before.bind('<Button-5>', self._on_wave_mousewheel)  # Linux scroll down
         self.canvas_before.bind('<ButtonPress-1>', self._on_wave_press)
         self.canvas_before.bind('<B1-Motion>', self._on_wave_drag)
@@ -1435,6 +1443,10 @@ Lossless форматы (без потерь):
         self.root.bind('<KeyPress-underscore>', self._on_zoom_key)  # Shift+- on some keyboards
         
         self._shift_pressed = False
+        
+        # Instructions label
+        lbl_instructions = ttk.Label(lf, text="🖱️ Колесо: Прокрутка | Ctrl+Колесо/+-: Зум | Shift+Колесо: Быстрая прокрутка | ЛКМ: Перетаскивание", font=("Segoe UI", 9), foreground="#888")
+        lbl_instructions.pack(anchor=W, pady=(5, 0))
 
     def _load_waveform_for_file(self, file_path):
         if self._waveform_loading:
@@ -1649,6 +1661,11 @@ Lossless форматы (без потерь):
         self._draw_placeholder(self.canvas_after, '')
         self.lbl_wave_status.config(text='Выберите файл')
 
+    def _stop_event_propagation(self, event):
+        """Stop mouse wheel event propagation to prevent main window scrolling"""
+        # Return 'break' to stop event propagation
+        return 'break'
+
     def _on_wave_mousewheel(self, event):
         """Handle mouse wheel for zoom (Ctrl+Wheel) or navigation (Shift+Wheel)"""
         if self._waveform_samples is None:
@@ -1682,6 +1699,9 @@ Lossless форматы (без потерь):
             else:
                 self._wave_offset = min(1.0, self._wave_offset + nav_step)
             self._schedule_redraw()
+        
+        # Always stop propagation when over canvas
+        return 'break'
 
     def _on_shift_press(self, event):
         self._shift_pressed = True
