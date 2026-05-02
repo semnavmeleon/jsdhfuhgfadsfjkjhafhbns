@@ -2168,14 +2168,12 @@ Lossless форматы (без потерь):
         main_frame = ttk.Frame(help_win, padding=15)
         main_frame.pack(fill='both', expand=True)
         
-        # Заголовок с кнопкой закрытия в одном ряду
+        # Заголовок 
         header_frame = ttk.Frame(main_frame)
         header_frame.pack(fill='x', pady=(0, 15))
         
         ttk.Label(header_frame, text="📖 Документация по шаблонам имён файлов", 
                   font=('', 14, 'bold')).pack(side='left')
-        
-        ttk.Button(header_frame, text="Закрыть", command=help_win.destroy).pack(side='right')
         
         text = tk.Text(main_frame, wrap='word', font=('Consolas', 10), 
                        padx=15, pady=15, bg='#f8f9fa')
