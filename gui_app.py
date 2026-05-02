@@ -275,6 +275,7 @@ class VKModifierApp:
         self._preview_timer = None
         self._mode = 'modifier'
         self.user_templates = []
+        self._selected_template_index = None
         self._wave_zoom = 1.0
         self._wave_offset = 0.0
         self._wave_drag_start = None
@@ -378,7 +379,6 @@ class VKModifierApp:
         self.v_preset_name = tk.StringVar()
         self.v_max_workers = tk.IntVar(value=4)
         self.v_thread_delay = tk.DoubleVar(value=0.0)
-        self.v_new_template_name = tk.StringVar()
 
         self.v_conv_format = tk.StringVar(value='mp3')
         self.v_conv_quality = tk.StringVar(value='320 kbps (CBR)')
@@ -887,8 +887,29 @@ class VKModifierApp:
         try:
             self._apply_variable_tags()
             self._update_live_preview_from_text()
+            self._auto_update_selected_template()
         except Exception:
             pass
+
+    def _auto_update_selected_template(self):
+        if self._selected_template_index is None:
+            return
+        if self._selected_template_index >= len(self.user_templates):
+            return
+        pattern = self._get_text_template_content().strip()
+        if not pattern:
+            return
+        try:
+            pattern.format(n=1, original='test', title='test', artist='test', album='test', year='2024')
+        except (KeyError, ValueError):
+            return
+        idx = self._selected_template_index
+        self.user_templates[idx]['pattern'] = pattern
+        self._refresh_template_list()
+        self.template_listbox.selection_clear(0, tk.END)
+        self.template_listbox.selection_set(idx)
+        self.template_listbox.activate(idx)
+        self._save_config()
 
     def _apply_variable_tags(self):
         try:
@@ -991,10 +1012,8 @@ class VKModifierApp:
         self.user_templates.append({'name': name, 'pattern': pattern})
         self._refresh_template_list()
         self._save_config()
-        self.v_new_template_name.set('')
-        self.text_template_pattern.delete('1.0', 'end')
-        self._update_live_preview_from_text()
         self._log(f"Шаблон '{name}' сохранён", 'success')
+        dialog.destroy()
 
     def _on_template_select_auto(self, event):
         sel = self.template_listbox.curselection()
@@ -1004,6 +1023,7 @@ class VKModifierApp:
         if idx < len(self.user_templates):
             pattern = self.user_templates[idx]['pattern']
             self.v_filename_template.set(pattern)
+            self._selected_template_index = idx
             self._update_name_preview()
             self._log(f"Шаблон '{self.user_templates[idx]['name']}' активирован", 'success')
 
@@ -1014,7 +1034,6 @@ class VKModifierApp:
         idx = sel[0]
         if idx < len(self.user_templates):
             tpl = self.user_templates[idx]
-            self.v_new_template_name.set(tpl['name'])
             self.text_template_pattern.delete('1.0', 'end')
             self.text_template_pattern.insert('1.0', tpl['pattern'])
             self._apply_variable_tags()
@@ -1078,6 +1097,10 @@ class VKModifierApp:
         if idx < len(self.user_templates):
             name = self.user_templates[idx]['name']
             self.user_templates.pop(idx)
+            if self._selected_template_index == idx:
+                self._selected_template_index = None
+            elif self._selected_template_index is not None and self._selected_template_index > idx:
+                self._selected_template_index -= 1
             self._refresh_template_list()
             self._save_config()
             self._log(f"Шаблон '{name}' удалён", 'warning')
