@@ -702,6 +702,7 @@ class VKModifierApp:
             ttk.Label(lf, text=lbl).grid(row=row_i, column=0, sticky='w', padx=2, pady=1)
             e = ttk.Entry(lf, textvariable=var)
             e.grid(row=row_i, column=1, sticky='ew', padx=2, pady=1)
+            self._enable_copy_paste(e)
             var.trace_add('write', lambda *_: (self._update_name_preview(), self._save_config()))
 
         lf.columnconfigure(1, weight=1)
@@ -826,11 +827,21 @@ class VKModifierApp:
         constr_frame = ttk.LabelFrame(mid_frame, text="Конструктор шаблона", padding=6)
         constr_frame.pack(side='right', fill='both', expand=True)
 
+        # Поле для названия шаблона
+        name_frame = ttk.Frame(constr_frame)
+        name_frame.pack(fill='x', pady=(0, 4))
+        ttk.Label(name_frame, text="Название шаблона:", font=('', 9, 'bold')).pack(side='left', padx=(0, 4))
+        self.v_new_template_name = tk.StringVar()
+        self.entry_new_template_name = ttk.Entry(name_frame, textvariable=self.v_new_template_name, width=25)
+        self.entry_new_template_name.pack(side='left', fill='x', expand=True)
+        self._enable_copy_paste(self.entry_new_template_name)
+
         ttk.Label(constr_frame, text="Шаблон:", font=('', 9, 'bold')).pack(anchor='w')
         self.text_template_pattern = tk.Text(constr_frame, font=('Consolas', 10), width=35, height=3, wrap='word', undo=True, autoseparators=True)
         self.text_template_pattern.pack(fill='x', pady=(2, 4))
         self.text_template_pattern.tag_configure('variable', background='#e0e7ff', foreground='#3730a3', borderwidth=1, relief='raised')
         self.text_template_pattern.tag_configure('variable_sel', background='#6366f1', foreground='white')
+        self._enable_copy_paste(self.text_template_pattern)
 
         self.text_template_pattern.bind('<KeyRelease>', self._on_text_template_change)
         self.text_template_pattern.bind('<KeyPress-BackSpace>', self._on_variable_backspace)
@@ -853,14 +864,11 @@ class VKModifierApp:
         self.lbl_template_live_preview = ttk.Label(preview_live_frame, text="Предпросмотр: --", foreground='#333', font=('Consolas', 9), padding=4, anchor='w', justify='left')
         self.lbl_template_live_preview.pack(fill='x')
 
-        # Поле для названия шаблона и кнопка сохранения
-        save_frame = ttk.Frame(constr_frame)
-        save_frame.pack(fill='x', pady=(4, 0))
-        ttk.Label(save_frame, text="Название шаблона:").pack(side='left', padx=(0, 4))
-        self.v_new_template_name = tk.StringVar()
-        self.entry_new_template_name = ttk.Entry(save_frame, textvariable=self.v_new_template_name, width=20)
-        self.entry_new_template_name.pack(side='left', padx=(0, 4), fill='x', expand=True)
-        ttk.Button(save_frame, text="Сохранить шаблон", command=self._save_new_template).pack(side='left')
+        # Кнопки Сохранить шаблон и Удалить под предпросмотром
+        btns_frame = ttk.Frame(constr_frame)
+        btns_frame.pack(fill='x', pady=(4, 0))
+        ttk.Button(btns_frame, text="Сохранить шаблон", command=self._save_new_template).pack(side='left', padx=(0, 4))
+        ttk.Button(btns_frame, text="Удалить", command=self._delete_selected_template).pack(side='left')
 
         self._refresh_template_list()
         self.v_filename_template.trace_add('write', lambda *_: (self._update_name_preview(), self._save_config()))
@@ -1103,11 +1111,13 @@ class VKModifierApp:
         name_var = tk.StringVar()
         name_entry = ttk.Entry(dialog, textvariable=name_var, width=40)
         name_entry.pack(pady=5)
+        self._enable_copy_paste(name_entry)
 
         ttk.Label(dialog, text="Описание (необязательно):").pack(pady=(5, 5))
         desc_var = tk.StringVar()
         desc_entry = ttk.Entry(dialog, textvariable=desc_var, width=40)
         desc_entry.pack(pady=5)
+        self._enable_copy_paste(desc_entry)
 
         def on_save():
             name = name_var.get().strip()
@@ -1676,6 +1686,7 @@ class VKModifierApp:
         merge_frame.grid(row=r, column=0, columnspan=4, sticky='w', padx=20, pady=2)
         self.entry_extra = ttk.Entry(merge_frame, textvariable=self.v_extra, width=40)
         self.entry_extra.pack(side='left', padx=(0, 4))
+        self._enable_copy_paste(self.entry_extra)
         ttk.Button(merge_frame, text="Выбрать трек", command=self._select_extra_track).pack(side='left')
         r += 1
 
@@ -1815,7 +1826,9 @@ class VKModifierApp:
 
         name_row = ttk.Frame(lf)
         name_row.pack(fill='x', pady=2)
-        ttk.Entry(name_row, textvariable=self.v_preset_name, width=18).pack(side='left')
+        preset_name_entry = ttk.Entry(name_row, textvariable=self.v_preset_name, width=18)
+        preset_name_entry.pack(side='left')
+        self._enable_copy_paste(preset_name_entry)
         ttk.Button(name_row, text="Сохранить", command=self._save_preset).pack(side='left', padx=2)
 
         btn_row = ttk.Frame(lf)
@@ -1886,6 +1899,17 @@ class VKModifierApp:
             self.root.bind_class(widget_class, '<Control-X>', self._bind_cut)
             self.root.bind_class(widget_class, '<Control-a>', self._bind_select_all)
             self.root.bind_class(widget_class, '<Control-A>', self._bind_select_all)
+
+    def _enable_copy_paste(self, widget):
+        """Включает поддержку Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+A для указанного виджета"""
+        widget.bind('<Control-c>', self._bind_copy)
+        widget.bind('<Control-C>', self._bind_copy)
+        widget.bind('<Control-v>', self._bind_paste)
+        widget.bind('<Control-V>', self._bind_paste)
+        widget.bind('<Control-x>', self._bind_cut)
+        widget.bind('<Control-X>', self._bind_cut)
+        widget.bind('<Control-a>', self._bind_select_all)
+        widget.bind('<Control-A>', self._bind_select_all)
 
     def _bind_copy(self, event):
         try:
