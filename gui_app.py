@@ -579,6 +579,7 @@ class VKModifierApp:
 
         self.conv_log_text = scrolledtext.ScrolledText(log_frame, height=8, state='disabled', font=('Courier', 9), wrap='word')
         self.conv_log_text.pack(fill='both', expand=True)
+        self._bind_copy_paste_text(self.conv_log_text)
         self.conv_log_text.tag_config('info', foreground='#333333')
         self.conv_log_text.tag_config('success', foreground='#007700')
         self.conv_log_text.tag_config('warning', foreground='#aa6600')
@@ -702,6 +703,7 @@ class VKModifierApp:
             ttk.Label(lf, text=lbl).grid(row=row_i, column=0, sticky='w', padx=2, pady=1)
             e = ttk.Entry(lf, textvariable=var)
             e.grid(row=row_i, column=1, sticky='ew', padx=2, pady=1)
+            self._bind_copy_paste(e)
             var.trace_add('write', lambda *_: (self._update_name_preview(), self._save_config()))
 
         lf.columnconfigure(1, weight=1)
@@ -762,6 +764,7 @@ class VKModifierApp:
 
         self.txt_track_info = tk.Text(lf, width=30, height=8, state='disabled', font=('Courier', 9), wrap='none')
         self.txt_track_info.pack(fill='both', expand=True)
+        self._bind_copy_paste_text(self.txt_track_info)
         self._update_track_info(-1)
 
     def _build_methods_notebook(self, nb_parent=None):
@@ -826,9 +829,19 @@ class VKModifierApp:
         constr_frame = ttk.LabelFrame(mid_frame, text="Конструктор шаблона", padding=6)
         constr_frame.pack(side='right', fill='both', expand=True)
 
+        # Поле для названия шаблона - перемещено вверх
+        save_frame_top = ttk.Frame(constr_frame)
+        save_frame_top.pack(fill='x', pady=(0, 4))
+        ttk.Label(save_frame_top, text="Название шаблона:", font=('', 9, 'bold')).pack(side='left', padx=(0, 4))
+        self.v_new_template_name = tk.StringVar()
+        self.entry_new_template_name = ttk.Entry(save_frame_top, textvariable=self.v_new_template_name, width=20)
+        self.entry_new_template_name.pack(side='left', padx=(0, 4), fill='x', expand=True)
+        self._bind_copy_paste(self.entry_new_template_name)
+
         ttk.Label(constr_frame, text="Шаблон:", font=('', 9, 'bold')).pack(anchor='w')
         self.text_template_pattern = tk.Text(constr_frame, font=('Consolas', 10), width=35, height=3, wrap='word', undo=True, autoseparators=True)
         self.text_template_pattern.pack(fill='x', pady=(2, 4))
+        self._bind_copy_paste_text(self.text_template_pattern)
         self.text_template_pattern.tag_configure('variable', background='#e0e7ff', foreground='#3730a3', borderwidth=1, relief='raised')
         self.text_template_pattern.tag_configure('variable_sel', background='#6366f1', foreground='white')
 
@@ -853,14 +866,11 @@ class VKModifierApp:
         self.lbl_template_live_preview = ttk.Label(preview_live_frame, text="Предпросмотр: --", foreground='#333', font=('Consolas', 9), padding=4, anchor='w', justify='left')
         self.lbl_template_live_preview.pack(fill='x')
 
-        # Поле для названия шаблона и кнопка сохранения
-        save_frame = ttk.Frame(constr_frame)
-        save_frame.pack(fill='x', pady=(4, 0))
-        ttk.Label(save_frame, text="Название шаблона:").pack(side='left', padx=(0, 4))
-        self.v_new_template_name = tk.StringVar()
-        self.entry_new_template_name = ttk.Entry(save_frame, textvariable=self.v_new_template_name, width=20)
-        self.entry_new_template_name.pack(side='left', padx=(0, 4), fill='x', expand=True)
-        ttk.Button(save_frame, text="Сохранить шаблон", command=self._save_new_template).pack(side='left')
+        # Кнопки "Сохранить шаблон" и "Удалить" под предпросмотром
+        buttons_bottom_frame = ttk.Frame(constr_frame)
+        buttons_bottom_frame.pack(fill='x', pady=(4, 0))
+        ttk.Button(buttons_bottom_frame, text="Сохранить шаблон", command=self._save_new_template).pack(side='left', padx=(0, 4))
+        ttk.Button(buttons_bottom_frame, text="Удалить", command=self._delete_selected_template).pack(side='left')
 
         self._refresh_template_list()
         self.v_filename_template.trace_add('write', lambda *_: (self._update_name_preview(), self._save_config()))
@@ -1103,11 +1113,13 @@ class VKModifierApp:
         name_var = tk.StringVar()
         name_entry = ttk.Entry(dialog, textvariable=name_var, width=40)
         name_entry.pack(pady=5)
+        self._bind_copy_paste(name_entry)
 
         ttk.Label(dialog, text="Описание (необязательно):").pack(pady=(5, 5))
         desc_var = tk.StringVar()
         desc_entry = ttk.Entry(dialog, textvariable=desc_var, width=40)
         desc_entry.pack(pady=5)
+        self._bind_copy_paste(desc_entry)
 
         def on_save():
             name = name_var.get().strip()
@@ -1676,6 +1688,7 @@ class VKModifierApp:
         merge_frame.grid(row=r, column=0, columnspan=4, sticky='w', padx=20, pady=2)
         self.entry_extra = ttk.Entry(merge_frame, textvariable=self.v_extra, width=40)
         self.entry_extra.pack(side='left', padx=(0, 4))
+        self._bind_copy_paste(self.entry_extra)
         ttk.Button(merge_frame, text="Выбрать трек", command=self._select_extra_track).pack(side='left')
         r += 1
 
@@ -1790,6 +1803,7 @@ class VKModifierApp:
         ttk.Label(header_frame, text="📖 Документация по шаблонам имён файлов", font=('', 14, 'bold')).pack(side='left')
 
         text = tk.Text(main_frame, wrap='word', font=('Consolas', 10), padx=15, pady=15, bg='#f8f9fa')
+        self._bind_copy_paste_text(text)
         scroll = ttk.Scrollbar(main_frame, orient='vertical', command=text.yview)
         text.configure(yscrollcommand=scroll.set)
         scroll.pack(side='right', fill='y')
@@ -1815,7 +1829,9 @@ class VKModifierApp:
 
         name_row = ttk.Frame(lf)
         name_row.pack(fill='x', pady=2)
-        ttk.Entry(name_row, textvariable=self.v_preset_name, width=18).pack(side='left')
+        preset_name_entry = ttk.Entry(name_row, textvariable=self.v_preset_name, width=18)
+        preset_name_entry.pack(side='left')
+        self._bind_copy_paste(preset_name_entry)
         ttk.Button(name_row, text="Сохранить", command=self._save_preset).pack(side='left', padx=2)
 
         btn_row = ttk.Frame(lf)
@@ -1853,6 +1869,7 @@ class VKModifierApp:
 
         self.log_text = scrolledtext.ScrolledText(lf, height=7, state='disabled', font=('Courier', 9), wrap='word')
         self.log_text.pack(fill='both', expand=True)
+        self._bind_copy_paste_text(self.log_text)
         self.log_text.tag_config('info', foreground='#333333')
         self.log_text.tag_config('success', foreground='#007700')
         self.log_text.tag_config('warning', foreground='#aa6600')
@@ -1944,6 +1961,28 @@ class VKModifierApp:
         except Exception:
             pass
         return 'break'
+
+    def _bind_copy_paste(self, entry_widget):
+        """Привязка Ctrl+C/Ctrl+V для ttk.Entry"""
+        entry_widget.bind('<Control-c>', self._bind_copy)
+        entry_widget.bind('<Control-C>', self._bind_copy)
+        entry_widget.bind('<Control-v>', self._bind_paste)
+        entry_widget.bind('<Control-V>', self._bind_paste)
+        entry_widget.bind('<Control-x>', self._bind_cut)
+        entry_widget.bind('<Control-X>', self._bind_cut)
+        entry_widget.bind('<Control-a>', self._bind_select_all)
+        entry_widget.bind('<Control-A>', self._bind_select_all)
+
+    def _bind_copy_paste_text(self, text_widget):
+        """Привязка Ctrl+C/Ctrl+V для Text виджетов"""
+        text_widget.bind('<Control-c>', self._bind_copy)
+        text_widget.bind('<Control-C>', self._bind_copy)
+        text_widget.bind('<Control-v>', self._bind_paste)
+        text_widget.bind('<Control-V>', self._bind_paste)
+        text_widget.bind('<Control-x>', self._bind_cut)
+        text_widget.bind('<Control-X>', self._bind_cut)
+        text_widget.bind('<Control-a>', self._bind_select_all)
+        text_widget.bind('<Control-A>', self._bind_select_all)
 
     def _listbox_select_all(self, event=None):
         self.file_listbox.select_set(0, 'end')
