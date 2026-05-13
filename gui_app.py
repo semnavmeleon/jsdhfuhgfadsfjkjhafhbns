@@ -299,45 +299,45 @@ class VKModifierApp:
         self.v_eq_val = tk.DoubleVar(value=-2.0)
         self.v_silence = tk.BooleanVar()
         self.v_silence_val = tk.IntVar(value=45)
-        self.v_phase_inv = tk.BooleanVar(value=True)
+        self.v_phase_inv = tk.BooleanVar()
         self.v_phase_inv_val = tk.DoubleVar(value=1.0)
-        self.v_phase_scr = tk.BooleanVar(value=True)
+        self.v_phase_scr = tk.BooleanVar()
         self.v_phase_scr_val = tk.DoubleVar(value=2.0)
-        self.v_dc = tk.BooleanVar(value=True)
+        self.v_dc = tk.BooleanVar()
         self.v_dc_val = tk.DoubleVar(value=0.000005)
-        self.v_resamp = tk.BooleanVar(value=True)
+        self.v_resamp = tk.BooleanVar()
         self.v_resamp_val = tk.IntVar(value=1)
-        self.v_ultra = tk.BooleanVar(value=True)
+        self.v_ultra = tk.BooleanVar()
         self.v_ultra_freq = tk.IntVar(value=21000)
         self.v_ultra_level = tk.DoubleVar(value=0.001)
-        self.v_haas = tk.BooleanVar(value=True)
+        self.v_haas = tk.BooleanVar()
         self.v_haas_val = tk.DoubleVar(value=15.0)
-        self.v_dither = tk.BooleanVar(value=True)
+        self.v_dither = tk.BooleanVar()
         self.v_dither_method = tk.StringVar(value='triangular_hp')
-        self.v_id3pad = tk.BooleanVar(value=True)
+        self.v_id3pad = tk.BooleanVar()
         self.v_id3pad_val = tk.IntVar(value=512)
 
-        self.v_spectral_mask = tk.BooleanVar(value=False)
+        self.v_spectral_mask = tk.BooleanVar()
         self.v_spectral_mask_sens = tk.DoubleVar(value=0.8)
         self.v_spectral_mask_att = tk.IntVar(value=12)
         self.v_spectral_mask_peaks = tk.IntVar(value=10)
-        self.v_concert_emu = tk.BooleanVar(value=False)
+        self.v_concert_emu = tk.BooleanVar()
         self.v_concert_intensity = tk.StringVar(value='medium')
-        self.v_midside = tk.BooleanVar(value=False)
+        self.v_midside = tk.BooleanVar()
         self.v_midside_mid = tk.DoubleVar(value=-3.0)
         self.v_midside_side = tk.DoubleVar(value=2.0)
-        self.v_psycho_noise = tk.BooleanVar(value=False)
+        self.v_psycho_noise = tk.BooleanVar()
         self.v_psycho_intensity = tk.DoubleVar(value=0.0003)
-        self.v_saturation = tk.BooleanVar(value=False)
+        self.v_saturation = tk.BooleanVar()
         self.v_saturation_drive = tk.DoubleVar(value=1.5)
         self.v_saturation_mix = tk.DoubleVar(value=0.15)
-        self.v_temp_jitter = tk.BooleanVar(value=False)
+        self.v_temp_jitter = tk.BooleanVar()
         self.v_jitter_intensity = tk.DoubleVar(value=0.002)
         self.v_jitter_freq = tk.DoubleVar(value=0.5)
-        self.v_spec_jitter = tk.BooleanVar(value=False)
+        self.v_spec_jitter = tk.BooleanVar()
         self.v_spec_jitter_count = tk.IntVar(value=5)
         self.v_spec_jitter_att = tk.IntVar(value=15)
-        self.v_vk_infra = tk.BooleanVar(value=False)
+        self.v_vk_infra = tk.BooleanVar()
         self.v_vk_infra_mode = tk.StringVar(value='modulated')
         self.v_vk_infra_amplitude = tk.DoubleVar(value=0.35)
         self.v_vk_infra_freq = tk.DoubleVar(value=18.0)
@@ -345,7 +345,7 @@ class VKModifierApp:
         self.v_vk_infra_mod_depth = tk.DoubleVar(value=0.3)
         self.v_vk_infra_phase_shift = tk.DoubleVar(value=0.0)
         self.v_vk_infra_waveform = tk.StringVar(value='sine')
-        self.v_vk_infra_adaptive = tk.BooleanVar(value=True)
+        self.v_vk_infra_adaptive = tk.BooleanVar()
         self.v_vk_infra_h1 = tk.DoubleVar(value=0.15)
         self.v_vk_infra_h2 = tk.DoubleVar(value=0.07)
         self.v_vk_infra_h3 = tk.DoubleVar(value=0.03)
@@ -364,10 +364,10 @@ class VKModifierApp:
         self.v_bitrate_j = tk.BooleanVar()
         self.v_frame_sh = tk.BooleanVar()
         self.v_fake_meta = tk.BooleanVar()
-        self.v_reorder = tk.BooleanVar(value=True)
+        self.v_reorder = tk.BooleanVar()
         self.v_preserve_meta = tk.BooleanVar()
         self.v_preserve_cover = tk.BooleanVar()
-        self.v_rename = tk.BooleanVar(value=True)
+        self.v_rename = tk.BooleanVar()
         self.v_delete_orig = tk.BooleanVar()
         self.v_quality = tk.StringVar(value='320 kbps (CBR)')
         self.v_title = tk.StringVar()
@@ -2551,7 +2551,7 @@ class VKModifierApp:
         }
 
     def _load_config(self):
-        """Загружает конфигурацию из файла. НЕ загружает состояния настроек при старте."""
+        """Загружает конфигурацию из файла, включая состояния настроек."""
         try:
             if os.path.exists(CONFIG_FILE):
                 with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
@@ -2562,8 +2562,16 @@ class VKModifierApp:
                 if not self.user_templates:
                     self.user_templates = [{'name': f'Default {i+1}', 'pattern': p} for i, p in enumerate(DEFAULT_TEMPLATES)]
                 
-                # Настройки (states) НЕ загружаем при старте - оставляем значения по умолчанию
-                # Это предотвращает автоматическое применение настроек из предыдущей сессии
+                # Загружаем сохраненные настройки
+                settings = cfg.get('settings', {})
+                if settings:
+                    all_vars = self._get_all_settings_vars()
+                    for key, value in settings.items():
+                        if key in all_vars:
+                            try:
+                                all_vars[key].set(value)
+                            except Exception:
+                                pass
         except Exception:
             self.user_templates = [{'name': f'Default {i+1}', 'pattern': p} for i, p in enumerate(DEFAULT_TEMPLATES)]
 
