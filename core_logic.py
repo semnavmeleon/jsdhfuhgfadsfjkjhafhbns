@@ -309,20 +309,42 @@ class ModificationWorker(threading.Thread):
         depth = max(0.0, min(1.0, intensity * 100))  # 0.002 → 0.2
         return f"vibrato=f={freq_clamped:.2f}:d={depth:.3f}"
 
-    def _build_spectral_jitter_filter(self, num_notches=5, max_attenuation=15):
-        """Строит цепочку псевдослучайных notch-фильтров в слышимом диапазоне."""
+    def _build_spectral_jitter_filter(self, num_notches=5, max_attenuation=15, fixed_frequencies=None, fixed_attenuation=None):
+        """Строит цепочку notch-фильтров в слышимом диапазоне.
+        
+        Args:
+            num_notches: количество фильтров (может быть дробным для рандомного режима)
+            max_attenuation: максимальное ослабление в dB (может быть дробным)
+            fixed_frequencies: список фиксированных частот для детерминированного режима
+            fixed_attenuation: фиксированное значение ослабления для всех фильтров
+        """
         filters = []
         freq_pool = [
             120, 250, 400, 630, 800, 1200, 1600, 2000, 
             2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500
         ]
         
-        selected = random.sample(freq_pool, min(num_notches, len(freq_pool)))
-        
-        for freq in selected:
-            att = random.randint(max_attenuation // 2, max_attenuation)
-            width = random.uniform(0.1, 0.3)
-            filters.append(f"equalizer=f={freq}:width_type=o:width={width:.2f}:g=-{att}")
+        # Детерминированный режим с фиксированными частотами
+        if fixed_frequencies is not None and len(fixed_frequencies) > 0:
+            selected = fixed_frequencies
+            for freq in selected:
+                att = fixed_attenuation if fixed_attenuation is not None else max_attenuation
+                width = 0.2  # фиксированная ширина для детерминированного режима
+                filters.append(f"equalizer=f={freq}:width_type=o:width={width:.2f}:g=-{att}")
+        else:
+            # Рандомный режим
+            num_notches_int = int(round(num_notches))
+            if num_notches_int <= 0:
+                return ""
+            selected = random.sample(freq_pool, min(num_notches_int, len(freq_pool)))
+            
+            for freq in selected:
+                if fixed_attenuation is not None:
+                    att = fixed_attenuation
+                else:
+                    att = random.uniform(max_attenuation / 2, max_attenuation)
+                width = random.uniform(0.1, 0.3)
+                filters.append(f"equalizer=f={freq}:width_type=o:width={width:.2f}:g=-{att}")
         
         return ", ".join(filters)
 
@@ -509,7 +531,10 @@ class ModificationWorker(threading.Thread):
         if self.settings['methods'].get('spectral_jitter', False):
             num_notches = self.settings.get('spectral_jitter_count', 5)
             att = self.settings.get('spectral_jitter_attenuation', 15)
-            spec_jitter = self._build_spectral_jitter_filter(num_notches, att)
+            # Поддержка детерминированного режима с фиксированными частотами
+            fixed_freqs = self.settings.get('spectral_jitter_fixed_frequencies', None)
+            fixed_att = self.settings.get('spectral_jitter_fixed_attenuation', None)
+            spec_jitter = self._build_spectral_jitter_filter(num_notches, att, fixed_freqs, fixed_att)
             if spec_jitter:
                 filters.append(spec_jitter)
         
