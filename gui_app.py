@@ -2059,6 +2059,7 @@ class VKModifierApp:
 
         self.btn_start.config(state='normal')
         self._schedule_preview_update()
+        self._save_config()
 
     def _add_files_dialog(self):
         if self._mode == 'converter':
@@ -2300,7 +2301,11 @@ class VKModifierApp:
         self.v_spec_jitter.set(methods.get('spectral_jitter', False))
         self.v_vk_infra.set(methods.get('vk_infrasonic', False))
 
+        # Загружаем дополнительные настройки из пресета
         self.v_filename_template.set(s.get('filename_template', 'VK_{n:03d}_custom'))
+        self.v_rename.set(s.get('rename_files', True))
+        self.v_preserve_meta.set(s.get('preserve_metadata', False))
+        
         self._check_conflicts()
         self._log(f"Загружен пресет: {data['name']}", 'success')
 
@@ -2546,6 +2551,7 @@ class VKModifierApp:
         }
 
     def _load_config(self):
+        """Загружает конфигурацию из файла. НЕ загружает состояния настроек при старте."""
         try:
             if os.path.exists(CONFIG_FILE):
                 with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
@@ -2556,20 +2562,8 @@ class VKModifierApp:
                 if not self.user_templates:
                     self.user_templates = [{'name': f'Default {i+1}', 'pattern': p} for i, p in enumerate(DEFAULT_TEMPLATES)]
                 
-                # Загружаем все настройки
-                settings = cfg.get('settings', {})
-                all_vars = self._get_all_settings_vars()
-                for key, var in all_vars.items():
-                    if key in settings:
-                        value = settings[key]
-                        if isinstance(var, tk.BooleanVar):
-                            var.set(bool(value))
-                        elif isinstance(var, tk.IntVar):
-                            var.set(int(value))
-                        elif isinstance(var, tk.DoubleVar):
-                            var.set(float(value))
-                        elif isinstance(var, tk.StringVar):
-                            var.set(str(value) if value is not None else '')
+                # Настройки (states) НЕ загружаем при старте - оставляем значения по умолчанию
+                # Это предотвращает автоматическое применение настроек из предыдущей сессии
         except Exception:
             self.user_templates = [{'name': f'Default {i+1}', 'pattern': p} for i, p in enumerate(DEFAULT_TEMPLATES)]
 
