@@ -868,11 +868,10 @@ class VKModifierApp:
         self.lbl_template_live_preview = ttk.Label(preview_live_frame, text="Предпросмотр: --", foreground='#333', font=('Consolas', 9), padding=4, anchor='w', justify='left')
         self.lbl_template_live_preview.pack(fill='x')
 
-        # Кнопки "Сохранить шаблон" и "Удалить" под предпросмотром
+        # Кнопка "Сохранить шаблон" под предпросмотром (кнопка "Удалить" удалена по запросу)
         buttons_bottom_frame = ttk.Frame(constr_frame)
         buttons_bottom_frame.pack(fill='x', pady=(4, 0))
-        ttk.Button(buttons_bottom_frame, text="Сохранить шаблон", command=self._save_new_template).pack(side='left', padx=(0, 4))
-        ttk.Button(buttons_bottom_frame, text="Удалить", command=self._delete_selected_template).pack(side='left')
+        ttk.Button(buttons_bottom_frame, text="Сохранить шаблон", command=self._save_new_template).pack(side='left')
 
         self._refresh_template_list()
         self.v_filename_template.trace_add('write', lambda *_: (self._update_name_preview(), self._save_config()))
@@ -1526,7 +1525,9 @@ class VKModifierApp:
         r += 1
 
         ttk.Checkbutton(f, text="Dither Attack", variable=self.v_dither, command=self._check_conflicts).grid(row=r, column=0, sticky='w', padx=4, pady=(4, 0))
-        ttk.Combobox(f, textvariable=self.v_dither_method, width=16, state='readonly', values=['triangular_hp', 'rectangular', 'gaussian', 'lipshitz']).grid(row=r, column=1, padx=4, pady=(4, 0))
+        self.cmb_dither_method = ttk.Combobox(f, textvariable=self.v_dither_method, width=16, state='readonly', values=['triangular_hp', 'rectangular', 'gaussian', 'lipshitz'])
+        self.cmb_dither_method.grid(row=r, column=1, padx=4, pady=(4, 0))
+        self._bind_copy_paste(self.cmb_dither_method)
         r += 1
         self._desc(f, r, 0, "Шум квантования при конвертации в MP3.")
         r += 1
@@ -1563,7 +1564,9 @@ class VKModifierApp:
         concert_frame = ttk.Frame(f)
         concert_frame.grid(row=r, column=0, columnspan=4, sticky='w', padx=20, pady=2)
         ttk.Label(concert_frame, text="Интенсивность:").pack(side='left')
-        ttk.Combobox(concert_frame, textvariable=self.v_concert_intensity, width=10, state='readonly', values=['light', 'medium', 'heavy']).pack(side='left', padx=4)
+        self.cmb_concert_intensity = ttk.Combobox(concert_frame, textvariable=self.v_concert_intensity, width=10, state='readonly', values=['light', 'medium', 'heavy'])
+        self.cmb_concert_intensity.pack(side='left', padx=4)
+        self._bind_copy_paste(self.cmb_concert_intensity)
         r += 1
 
         ttk.Checkbutton(f, text="Mid/Side обработка", variable=self.v_midside, command=self._check_conflicts).grid(row=r, column=0, sticky='w', padx=4, pady=(4, 0))
@@ -1622,7 +1625,9 @@ class VKModifierApp:
         vk_frame = ttk.Frame(f)
         vk_frame.grid(row=r, column=0, columnspan=5, sticky='w', padx=20, pady=2)
         ttk.Label(vk_frame, text="Режим:").pack(side='left')
-        ttk.Combobox(vk_frame, textvariable=self.v_vk_infra_mode, width=12, state='readonly', values=['simple', 'modulated', 'phase', 'harmonic', 'maximum']).pack(side='left', padx=2)
+        self.cmb_vk_infra_mode = ttk.Combobox(vk_frame, textvariable=self.v_vk_infra_mode, width=12, state='readonly', values=['simple', 'modulated', 'phase', 'harmonic', 'maximum'])
+        self.cmb_vk_infra_mode.pack(side='left', padx=2)
+        self._bind_copy_paste(self.cmb_vk_infra_mode)
         ttk.Label(vk_frame, text="  Частота (Гц):").pack(side='left')
         self._spin(vk_frame, self.v_vk_infra_freq, 1.0, 25.0, 0.5, width=5).pack(side='left', padx=2)
         ttk.Label(vk_frame, text="  Амплитуда:").pack(side='left')
@@ -1642,7 +1647,9 @@ class VKModifierApp:
         vk_frame3 = ttk.Frame(f)
         vk_frame3.grid(row=r, column=0, columnspan=5, sticky='w', padx=20, pady=2)
         ttk.Label(vk_frame3, text="Форма волны:").pack(side='left')
-        ttk.Combobox(vk_frame3, textvariable=self.v_vk_infra_waveform, width=10, state='readonly', values=['sine', 'triangle', 'square']).pack(side='left', padx=2)
+        self.cmb_vk_infra_waveform = ttk.Combobox(vk_frame3, textvariable=self.v_vk_infra_waveform, width=10, state='readonly', values=['sine', 'triangle', 'square'])
+        self.cmb_vk_infra_waveform.pack(side='left', padx=2)
+        self._bind_copy_paste(self.cmb_vk_infra_waveform)
         ttk.Checkbutton(vk_frame3, text="Адаптивная амплитуда", variable=self.v_vk_infra_adaptive).pack(side='left', padx=6)
         r += 1
 
@@ -1704,6 +1711,7 @@ class VKModifierApp:
                                        values=["0: Случайная большая длительность", "1: Случайная малая длительность", "2: Случайная средняя длительность", "3: Максимальная длительность"])
         self.cmb_broken.current(0)
         self.cmb_broken.pack(side='left', padx=4)
+        self._bind_copy_paste(self.cmb_broken)
         r += 1
         self.v_merge.trace_add('write', lambda *a: (self._check_conflicts(), self._save_config()))
         self.v_extra.trace_add('write', lambda *a: (self._check_conflicts(), self._save_config()))
@@ -1787,6 +1795,7 @@ class VKModifierApp:
         self.cmb_quality = ttk.Combobox(q_frame, textvariable=self.v_quality, width=20, state='readonly',
                                          values=['320 kbps (CBR)', '245 kbps (VBR Q0)', '175 kbps (VBR Q4)', '130 kbps (VBR Q6)'])
         self.cmb_quality.pack(side='left', padx=4)
+        self._bind_copy_paste(self.cmb_quality)
         self.cmb_quality.bind('<<ComboboxSelected>>', lambda e: self._save_config())
         ttk.Label(lf, text="320 kbps — макс. качество | 130 kbps — мин. размер", foreground='#888', font=('', 7)).pack(anchor='w', pady=(2, 0))
 
@@ -1937,6 +1946,13 @@ class VKModifierApp:
                     widget = getattr(self, widget_name)
                     if hasattr(widget, 'select_clear'):
                         widget.select_clear()
+            
+            # Снимаем выделение с Combobox (убираем фокус для снятия выделения текста)
+            for combobox_name in ['cmb_eq_type', 'cmb_broken', 'cmb_quality', 'cmb_conv_format', 'cmb_conv_quality']:
+                if hasattr(self, combobox_name):
+                    combobox = getattr(self, combobox_name)
+                    if hasattr(combobox, 'selection_clear'):
+                        combobox.selection_clear()
         except Exception:
             pass
 
@@ -1999,7 +2015,7 @@ class VKModifierApp:
         return 'break'
 
     def _bind_copy_paste(self, entry_widget):
-        """Привязка Ctrl+C/Ctrl+V для ttk.Entry"""
+        """Привязка Ctrl+C/Ctrl+V для ttk.Entry и ttk.Combobox"""
         entry_widget.bind('<Control-c>', self._bind_copy)
         entry_widget.bind('<Control-C>', self._bind_copy)
         entry_widget.bind('<Control-v>', self._bind_paste)
@@ -2008,6 +2024,17 @@ class VKModifierApp:
         entry_widget.bind('<Control-X>', self._bind_cut)
         entry_widget.bind('<Control-a>', self._bind_select_all)
         entry_widget.bind('<Control-A>', self._bind_select_all)
+
+    def _bind_copy_paste_spinbox(self, spinbox_widget):
+        """Привязка Ctrl+C/Ctrl+V для ttk.Spinbox"""
+        spinbox_widget.bind('<Control-c>', self._bind_copy)
+        spinbox_widget.bind('<Control-C>', self._bind_copy)
+        spinbox_widget.bind('<Control-v>', self._bind_paste)
+        spinbox_widget.bind('<Control-V>', self._bind_paste)
+        spinbox_widget.bind('<Control-x>', self._bind_cut)
+        spinbox_widget.bind('<Control-X>', self._bind_cut)
+        spinbox_widget.bind('<Control-a>', self._bind_select_all)
+        spinbox_widget.bind('<Control-A>', self._bind_select_all)
 
     def _bind_copy_paste_text(self, text_widget):
         """Привязка Ctrl+C/Ctrl+V для Text виджетов"""
@@ -2664,7 +2691,7 @@ class VKModifierApp:
     def _spin(self, parent, var, from_, to, inc, width=8, fmt='%.2f'):
         s = ttk.Spinbox(parent, textvariable=var, from_=from_, to=to, increment=inc, width=width,
                            format=fmt if isinstance(var, tk.DoubleVar) else None)
-        self._bind_copy_paste(s)
+        self._bind_copy_paste_spinbox(s)
         return s
 
     def _desc(self, parent, row, col, text, colspan=4):
