@@ -322,8 +322,10 @@ class VKModifierApp:
         self.v_jitter_intensity = tk.DoubleVar(value=0.002)
         self.v_jitter_freq = tk.DoubleVar(value=0.5)
         self.v_spec_jitter = tk.BooleanVar()
-        self.v_spec_jitter_count = tk.IntVar(value=5)
-        self.v_spec_jitter_att = tk.IntVar(value=15)
+        self.v_spec_jitter_count = tk.DoubleVar(value=5.0)
+        self.v_spec_jitter_att = tk.DoubleVar(value=15.0)
+        self.v_spec_jitter_mode = tk.StringVar(value='random')  # 'random' или 'fixed'
+        self.v_spec_jitter_fixed_freqs = tk.StringVar(value='')  # список частот через запятую
         self.v_vk_infra = tk.BooleanVar()
         self.v_vk_infra_mode = tk.StringVar(value='modulated')
         self.v_vk_infra_amplitude = tk.DoubleVar(value=0.35)
@@ -1278,6 +1280,7 @@ class VKModifierApp:
                 'psycho': self.v_psycho_noise.get(), 'psycho_intensity': self.v_psycho_intensity.get(),
                 'temp_jitter': self.v_temp_jitter.get(), 'jitter_intensity': self.v_jitter_intensity.get(), 'jitter_freq': self.v_jitter_freq.get(),
                 'spec_jitter': self.v_spec_jitter.get(), 'spec_jitter_count': self.v_spec_jitter_count.get(), 'spec_jitter_att': self.v_spec_jitter_att.get(),
+                'spec_jitter_mode': self.v_spec_jitter_mode.get(), 'spec_jitter_fixed_freqs': self.v_spec_jitter_fixed_freqs.get(),
             }
         except tk.TclError:
             return
@@ -1612,9 +1615,19 @@ class VKModifierApp:
         sj_frame = ttk.Frame(f)
         sj_frame.grid(row=r, column=0, columnspan=4, sticky='w', padx=20, pady=2)
         ttk.Label(sj_frame, text="Кол-во провалов:").pack(side='left')
-        self._spin(sj_frame, self.v_spec_jitter_count, 1, 15, 1, width=4, fmt=None).pack(side='left', padx=2)
+        self._spin(sj_frame, self.v_spec_jitter_count, 0.1, 15.0, 0.1, width=6, fmt='%.1f').pack(side='left', padx=2)
         ttk.Label(sj_frame, text="  Аттенюация (dB):").pack(side='left')
-        self._spin(sj_frame, self.v_spec_jitter_att, 3, 30, 1, width=4, fmt=None).pack(side='left', padx=2)
+        self._spin(sj_frame, self.v_spec_jitter_att, 0.1, 30.0, 0.1, width=6, fmt='%.1f').pack(side='left', padx=2)
+        r += 1
+        # Режим и фиксированные частоты
+        sj_mode_frame = ttk.Frame(f)
+        sj_mode_frame.grid(row=r, column=0, columnspan=4, sticky='w', padx=20, pady=2)
+        ttk.Label(sj_mode_frame, text="Режим:").pack(side='left')
+        mode_combo = ttk.Combobox(sj_mode_frame, textvariable=self.v_spec_jitter_mode, values=['random', 'fixed'], width=8, state='readonly')
+        mode_combo.pack(side='left', padx=5)
+        ttk.Label(sj_mode_frame, text="Частоты (через запятую):").pack(side='left', padx=(10, 0))
+        freq_entry = ttk.Entry(sj_mode_frame, textvariable=self.v_spec_jitter_fixed_freqs, width=25)
+        freq_entry.pack(side='left', padx=5)
         r += 1
 
         ttk.Separator(f, orient='horizontal').grid(row=r, column=0, columnspan=5, sticky='ew', pady=6)
@@ -2377,6 +2390,12 @@ class VKModifierApp:
         self.v_temp_jitter.set(methods.get('temporal_jitter', False))
         self.v_spec_jitter.set(methods.get('spectral_jitter', False))
         self.v_vk_infra.set(methods.get('vk_infrasonic', False))
+        
+        # Загружаем параметры спектрального джиттера
+        self.v_spec_jitter_count.set(s.get('spec_jitter_count', 5.0))
+        self.v_spec_jitter_att.set(s.get('spec_jitter_att', 15.0))
+        self.v_spec_jitter_mode.set(s.get('spec_jitter_mode', 'random'))
+        self.v_spec_jitter_fixed_freqs.set(s.get('spec_jitter_fixed_freqs', ''))
 
         # Загружаем дополнительные настройки из пресета
         self.v_filename_template.set(s.get('filename_template', 'VK_{n:03d}_custom'))
@@ -2576,6 +2595,8 @@ class VKModifierApp:
             'spec_jitter_enabled': self.v_spec_jitter,
             'spec_jitter_count': self.v_spec_jitter_count,
             'spec_jitter_att': self.v_spec_jitter_att,
+            'spec_jitter_mode': self.v_spec_jitter_mode,
+            'spec_jitter_fixed_freqs': self.v_spec_jitter_fixed_freqs,
             # Инфразвуковой генератор
             'vk_infra_enabled': self.v_vk_infra,
             'vk_infra_mode': self.v_vk_infra_mode,
