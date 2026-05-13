@@ -821,7 +821,6 @@ class VKModifierApp:
 
         list_buttons_frame = ttk.Frame(left_column)
         list_buttons_frame.pack(side='top', fill='x', pady=(4, 0))
-        ttk.Button(list_buttons_frame, text="Создать шаблон", command=self._create_template_dialog).pack(side='left', padx=2, expand=True, fill='x')
         ttk.Button(list_buttons_frame, text="Удалить", command=self._delete_selected_template).pack(side='left', padx=2, expand=True, fill='x')
 
         constr_frame = ttk.LabelFrame(mid_frame, text="Конструктор шаблона", padding=6)
@@ -853,6 +852,15 @@ class VKModifierApp:
         preview_live_frame.pack(fill='x', pady=(8, 4))
         self.lbl_template_live_preview = ttk.Label(preview_live_frame, text="Предпросмотр: --", foreground='#333', font=('Consolas', 9), padding=4, anchor='w', justify='left')
         self.lbl_template_live_preview.pack(fill='x')
+
+        # Поле для названия шаблона и кнопка сохранения
+        save_frame = ttk.Frame(constr_frame)
+        save_frame.pack(fill='x', pady=(4, 0))
+        ttk.Label(save_frame, text="Название шаблона:").pack(side='left', padx=(0, 4))
+        self.v_new_template_name = tk.StringVar()
+        self.entry_new_template_name = ttk.Entry(save_frame, textvariable=self.v_new_template_name, width=20)
+        self.entry_new_template_name.pack(side='left', padx=(0, 4), fill='x', expand=True)
+        ttk.Button(save_frame, text="Сохранить шаблон", command=self._save_new_template).pack(side='left')
 
         self._refresh_template_list()
         self.v_filename_template.trace_add('write', lambda *_: (self._update_name_preview(), self._save_config()))
@@ -1038,55 +1046,35 @@ class VKModifierApp:
             self._apply_variable_tags()
             self._update_live_preview_from_text()
 
-    def _create_template_dialog(self):
-        dialog = tk.Toplevel(self.root)
-        dialog.title("Создать шаблон")
-        dialog.geometry("350x180")
-        dialog.transient(self.root)
-        dialog.grab_set()
-
-        ttk.Label(dialog, text="Название шаблона:").pack(pady=(10, 5))
-        name_var = tk.StringVar()
-        name_entry = ttk.Entry(dialog, textvariable=name_var, width=40)
-        name_entry.pack(pady=5)
-
-        ttk.Label(dialog, text="Шаблон (например, VK_{n:03d}_custom):").pack(pady=(5, 5))
-        pattern_var = tk.StringVar()
-        pattern_entry = ttk.Entry(dialog, textvariable=pattern_var, width=40)
-        pattern_entry.pack(pady=5)
-
-        def on_save():
-            name = name_var.get().strip()
-            pattern = pattern_var.get().strip()
-            if not name:
-                messagebox.showwarning("Внимание", "Введите название шаблона")
+    def _save_new_template(self):
+        name = self.v_new_template_name.get().strip()
+        pattern = self._get_text_template_content().strip()
+        if not name:
+            messagebox.showwarning("Внимание", "Введите название шаблона")
+            return
+        if not pattern:
+            messagebox.showwarning("Внимание", "Введите шаблон в конструкторе")
+            return
+        try:
+            pattern.format(n=1, original='test', title='test', artist='test', album='test', year='2024')
+        except (KeyError, ValueError) as e:
+            messagebox.showerror("Ошибка", f"Некорректный шаблон:\n{e}")
+            return
+        
+        for tpl in self.user_templates:
+            if tpl['name'] == name:
+                tpl['pattern'] = pattern
+                self._refresh_template_list()
+                self._save_config()
+                self._log(f"Шаблон '{name}' обновлён", 'success')
                 return
-            if not pattern:
-                messagebox.showwarning("Внимание", "Введите шаблон")
-                return
-            try:
-                pattern.format(n=1, original='test', title='test', artist='test', album='test', year='2024')
-            except (KeyError, ValueError) as e:
-                messagebox.showerror("Ошибка", f"Некорректный шаблон:\n{e}")
-                return
-            
-            for tpl in self.user_templates:
-                if tpl['name'] == name:
-                    tpl['pattern'] = pattern
-                    self._refresh_template_list()
-                    self._save_config()
-                    self._log(f"Шаблон '{name}' обновлён", 'success')
-                    dialog.destroy()
-                    return
 
-            self.user_templates.append({'name': name, 'pattern': pattern})
-            self._refresh_template_list()
-            self._save_config()
-            self._log(f"Шаблон '{name}' сохранён", 'success')
-            dialog.destroy()
-
-        ttk.Button(dialog, text="Сохранить", command=on_save).pack(pady=10)
-        name_entry.focus()
+        self.user_templates.append({'name': name, 'pattern': pattern})
+        self._refresh_template_list()
+        self._save_config()
+        self._log(f"Шаблон '{name}' сохранён", 'success')
+        # Очищаем поле названия после сохранения
+        self.v_new_template_name.set('')
 
     def _delete_selected_template(self):
         sel = self.template_listbox.curselection()
