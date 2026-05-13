@@ -13,14 +13,6 @@ __pycache__/
 # Logs
 *.log
 
-# Temporary files
-*.tmp
-*.swp
-
-# Editors
-.vscode/
-.idea/
-
 # Dependencies
 .venv/
 venv/
@@ -30,4 +22,43 @@ node_modules/
 dist/
 build/
 target/
+
+# Editors
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.coverage
+htmlcov/
+.coverage.*
+.pytest_cache/
+.mypy_cache/
+
+# Compression
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 ```
