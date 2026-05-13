@@ -529,6 +529,7 @@ class VKModifierApp:
         self.cmb_conv_format = ttk.Combobox(fmt_row, textvariable=self.v_conv_format,
                                             values=list(SUPPORTED_FORMATS.keys()), width=10, state='readonly')
         self.cmb_conv_format.pack(side='left', padx=4)
+        self._bind_copy_paste(self.cmb_conv_format)
         self.cmb_conv_format.bind('<<ComboboxSelected>>', self._on_format_changed)
 
         self.lbl_format_desc = ttk.Label(fmt_row, text="", foreground='#888', font=('', 8))
@@ -540,6 +541,7 @@ class VKModifierApp:
 
         self.cmb_conv_quality = ttk.Combobox(self.quality_frame, textvariable=self.v_conv_quality, width=25, state='readonly')
         self.cmb_conv_quality.pack(side='left', padx=4)
+        self._bind_copy_paste(self.cmb_conv_quality)
 
         out_frame = ttk.LabelFrame(f, text="Настройки вывода", padding=8)
         out_frame.pack(fill='x', padx=6, pady=4)
@@ -824,7 +826,7 @@ class VKModifierApp:
 
         list_buttons_frame = ttk.Frame(left_column)
         list_buttons_frame.pack(side='top', fill='x', pady=(4, 0))
-        ttk.Button(list_buttons_frame, text="Удалить", command=self._delete_selected_template).pack(side='left', padx=2, expand=True, fill='x')
+        # Кнопка "Удалить" удалена по запросу пользователя
 
         constr_frame = ttk.LabelFrame(mid_frame, text="Конструктор шаблона", padding=6)
         constr_frame.pack(side='right', fill='both', expand=True)
@@ -1474,6 +1476,7 @@ class VKModifierApp:
         self.cmb_eq_type = ttk.Combobox(f, values=eq_types, width=26, state='readonly')
         self.cmb_eq_type.current(0)
         self.cmb_eq_type.grid(row=r, column=1, columnspan=2, padx=4, pady=(4, 0))
+        self._bind_copy_paste(self.cmb_eq_type)
         self._spin(f, self.v_eq_val, -12.0, 12.0, 1.0, width=5).grid(row=r, column=3, padx=2, pady=(4, 0))
         ttk.Label(f, text="dB").grid(row=r, column=4, sticky='w', pady=(4, 0))
         r += 1
@@ -1887,6 +1890,9 @@ class VKModifierApp:
         self.root.bind('<Control-s>', lambda e: self._save_preset())
         self.root.bind('<Control-S>', lambda e: self._save_preset())
 
+        # Снятие выделения при клике на пустое место
+        self.root.bind('<Button-1>', self._on_click_to_deselect)
+
         self.file_listbox.bind('<Control-a>', self._listbox_select_all)
         self.file_listbox.bind('<Control-A>', self._listbox_select_all)
         self.file_listbox.bind('<Delete>', lambda e: self._remove_selected())
@@ -1903,6 +1909,36 @@ class VKModifierApp:
             self.root.bind_class(widget_class, '<Control-X>', self._bind_cut)
             self.root.bind_class(widget_class, '<Control-a>', self._bind_select_all)
             self.root.bind_class(widget_class, '<Control-A>', self._bind_select_all)
+
+    def _on_click_to_deselect(self, event):
+        """Снимает выделение с Listbox и текстовых виджетов при клике на пустое место"""
+        try:
+            # Снимаем выделение с file_listbox
+            if hasattr(self, 'file_listbox') and self.file_listbox.curselection():
+                self.file_listbox.select_clear(0, 'end')
+                if hasattr(self, 'btn_remove'):
+                    self.btn_remove.config(state='disabled')
+            
+            # Снимаем выделение с template_listbox
+            if hasattr(self, 'template_listbox') and self.template_listbox.curselection():
+                self.template_listbox.select_clear(0, 'end')
+                self._selected_template_index = None
+            
+            # Снимаем текстовое выделение с Text виджетов
+            for widget_name in ['text_template_pattern', 'txt_track_info', 'conv_log_text', 'log_text']:
+                if hasattr(self, widget_name):
+                    widget = getattr(self, widget_name)
+                    if hasattr(widget, 'tag_ranges') and widget.tag_ranges('sel'):
+                        widget.tag_remove('sel', '1.0', 'end')
+            
+            # Снимаем выделение с Entry виджетов
+            for widget_name in ['entry_new_template_name', 'entry_extra']:
+                if hasattr(self, widget_name):
+                    widget = getattr(self, widget_name)
+                    if hasattr(widget, 'select_clear'):
+                        widget.select_clear()
+        except Exception:
+            pass
 
     def _bind_copy(self, event):
         try:
@@ -2626,8 +2662,10 @@ class VKModifierApp:
         return cb
 
     def _spin(self, parent, var, from_, to, inc, width=8, fmt='%.2f'):
-        return ttk.Spinbox(parent, textvariable=var, from_=from_, to=to, increment=inc, width=width,
+        s = ttk.Spinbox(parent, textvariable=var, from_=from_, to=to, increment=inc, width=width,
                            format=fmt if isinstance(var, tk.DoubleVar) else None)
+        self._bind_copy_paste(s)
+        return s
 
     def _desc(self, parent, row, col, text, colspan=4):
         ttk.Label(parent, text=text, foreground='gray', font=('', 8, 'italic')).grid(row=row, column=col,
