@@ -113,19 +113,6 @@ QUALITY_PRESETS = {
     'wma': ['320 kbps', '256 kbps', '192 kbps', '128 kbps'],
 }
 
-DEFAULT_TEMPLATES = [
-    'VK_{n:03d}_custom',
-    'modified_{original}',
-    '{artist} - {title}',
-    '{title}',
-    '{original}',
-    '{n:03d} - {artist} - {title}',
-    '{artist} - {album} - {n:02d} - {title}',
-    '{year} - {artist} - {title}',
-    '[VK] {title}',
-    '{title} (modified)',
-]
-
 
 class BatchConverter:
     def __init__(self, files, output_dir, output_format, quality_preset,
@@ -2559,8 +2546,6 @@ class VKModifierApp:
                 self.output_dir = cfg.get('output_dir', self.output_dir) or self.output_dir
                 self.saved_presets = cfg.get('presets', [])
                 self.user_templates = cfg.get('user_templates', [])
-                if not self.user_templates:
-                    self.user_templates = [{'name': f'Default {i+1}', 'pattern': p} for i, p in enumerate(DEFAULT_TEMPLATES)]
                 
                 # Загружаем сохраненные настройки
                 settings = cfg.get('settings', {})
@@ -2573,7 +2558,7 @@ class VKModifierApp:
                             except Exception:
                                 pass
         except Exception:
-            self.user_templates = [{'name': f'Default {i+1}', 'pattern': p} for i, p in enumerate(DEFAULT_TEMPLATES)]
+            pass
 
     def _save_config(self):
         try:
