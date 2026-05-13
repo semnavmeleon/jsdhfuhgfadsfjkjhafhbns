@@ -715,7 +715,7 @@ class VKModifierApp:
             ttk.Label(lf, text=lbl).grid(row=row_i, column=0, sticky='w', padx=2, pady=1)
             e = ttk.Entry(lf, textvariable=var)
             e.grid(row=row_i, column=1, sticky='ew', padx=2, pady=1)
-            var.trace_add('write', lambda *_: self._update_name_preview())
+            var.trace_add('write', lambda *_: (self._update_name_preview(), self._save_config()))
 
         lf.columnconfigure(1, weight=1)
 
@@ -868,7 +868,7 @@ class VKModifierApp:
         self.lbl_template_live_preview.pack(fill='x')
 
         self._refresh_template_list()
-        self.v_filename_template.trace_add('write', lambda *_: self._update_name_preview())
+        self.v_filename_template.trace_add('write', lambda *_: (self._update_name_preview(), self._save_config()))
 
     def _insert_template_var_tagged(self, var_text):
         try:
@@ -904,7 +904,12 @@ class VKModifierApp:
         except (KeyError, ValueError):
             return
         idx = self._selected_template_index
+        # Проверяем, изменился ли шаблон
+        if self.user_templates[idx]['pattern'] == pattern:
+            return
         self.user_templates[idx]['pattern'] = pattern
+        # Обновляем переменную шаблона для сохранения в конфиг
+        self.v_filename_template.set(pattern)
         self._refresh_template_list()
         self.template_listbox.selection_clear(0, tk.END)
         self.template_listbox.selection_set(idx)
@@ -1031,6 +1036,8 @@ class VKModifierApp:
             self._apply_variable_tags()
             self._update_live_preview_from_text()
             self._log(f"Шаблон '{tpl['name']}' активирован", 'success')
+            # Сохраняем настройки после выбора шаблона
+            self._save_config()
 
     def _on_template_select(self, event):
         sel = self.template_listbox.curselection()
@@ -1493,7 +1500,7 @@ class VKModifierApp:
         self._desc(f, r, 0, "Добавляет тишину в конец файла.")
 
         for v in (self.v_pitch_val, self.v_speed_val, self.v_eq_val, self.v_silence_val):
-            v.trace_add('write', lambda *a: self._check_conflicts())
+            v.trace_add('write', lambda *a: (self._check_conflicts(), self._save_config()))
 
     def _build_spectral_tab(self, nb):
         f = ttk.Frame(nb, padding=6)
@@ -1542,7 +1549,7 @@ class VKModifierApp:
         r += 1
 
         for v in (self.v_phase_scr_val, self.v_resamp_val, self.v_ultra_level):
-            v.trace_add('write', lambda *a: self._check_conflicts())
+            v.trace_add('write', lambda *a: (self._check_conflicts(), self._save_config()))
 
     def _build_texture_tab(self, nb):
         f = ttk.Frame(nb, padding=6)
@@ -1707,8 +1714,8 @@ class VKModifierApp:
         self.cmb_broken.current(0)
         self.cmb_broken.pack(side='left', padx=4)
         r += 1
-        self.v_merge.trace_add('write', lambda *a: self._check_conflicts())
-        self.v_extra.trace_add('write', lambda *a: self._check_conflicts())
+        self.v_merge.trace_add('write', lambda *a: (self._check_conflicts(), self._save_config()))
+        self.v_extra.trace_add('write', lambda *a: (self._check_conflicts(), self._save_config()))
 
     def _build_technical_tab(self, nb):
         f = ttk.Frame(nb, padding=6)
@@ -1779,9 +1786,9 @@ class VKModifierApp:
         self.lbl_out_dir = ttk.Label(dir_row, text=self.output_dir, relief='sunken', padding=2, width=30)
         self.lbl_out_dir.pack(side='left', padx=4, fill='x', expand=True)
 
-        ttk.Checkbutton(lf, text="Сохранить оригинальные теги", variable=self.v_preserve_meta).pack(anchor='w')
-        ttk.Checkbutton(lf, text="Сохранить оригинальную обложку", variable=self.v_preserve_cover).pack(anchor='w')
-        ttk.Checkbutton(lf, text="Удалять оригиналы после обработки", variable=self.v_delete_orig).pack(anchor='w')
+        ttk.Checkbutton(lf, text="Сохранить оригинальные теги", variable=self.v_preserve_meta, command=self._save_config).pack(anchor='w')
+        ttk.Checkbutton(lf, text="Сохранить оригинальную обложку", variable=self.v_preserve_cover, command=self._save_config).pack(anchor='w')
+        ttk.Checkbutton(lf, text="Удалять оригиналы после обработки", variable=self.v_delete_orig, command=self._save_config).pack(anchor='w')
 
         q_frame = ttk.Frame(lf)
         q_frame.pack(fill='x', pady=(8, 2))
@@ -1789,6 +1796,7 @@ class VKModifierApp:
         self.cmb_quality = ttk.Combobox(q_frame, textvariable=self.v_quality, width=20, state='readonly',
                                          values=['320 kbps (CBR)', '245 kbps (VBR Q0)', '175 kbps (VBR Q4)', '130 kbps (VBR Q6)'])
         self.cmb_quality.pack(side='left', padx=4)
+        self.cmb_quality.bind('<<ComboboxSelected>>', lambda e: self._save_config())
         ttk.Label(lf, text="320 kbps — макс. качество | 130 kbps — мин. размер", foreground='#888', font=('', 7)).pack(anchor='w', pady=(2, 0))
 
     def _show_template_help(self):
@@ -2051,6 +2059,7 @@ class VKModifierApp:
 
         self.btn_start.config(state='normal')
         self._schedule_preview_update()
+        self._save_config()
 
     def _add_files_dialog(self):
         if self._mode == 'converter':
@@ -2292,7 +2301,11 @@ class VKModifierApp:
         self.v_spec_jitter.set(methods.get('spectral_jitter', False))
         self.v_vk_infra.set(methods.get('vk_infrasonic', False))
 
+        # Загружаем дополнительные настройки из пресета
         self.v_filename_template.set(s.get('filename_template', 'VK_{n:03d}_custom'))
+        self.v_rename.set(s.get('rename_files', True))
+        self.v_preserve_meta.set(s.get('preserve_metadata', False))
+        
         self._check_conflicts()
         self._log(f"Загружен пресет: {data['name']}", 'success')
 
@@ -2538,6 +2551,7 @@ class VKModifierApp:
         }
 
     def _load_config(self):
+        """Загружает конфигурацию из файла. НЕ загружает состояния настроек при старте."""
         try:
             if os.path.exists(CONFIG_FILE):
                 with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
@@ -2548,20 +2562,8 @@ class VKModifierApp:
                 if not self.user_templates:
                     self.user_templates = [{'name': f'Default {i+1}', 'pattern': p} for i, p in enumerate(DEFAULT_TEMPLATES)]
                 
-                # Загружаем все настройки
-                settings = cfg.get('settings', {})
-                all_vars = self._get_all_settings_vars()
-                for key, var in all_vars.items():
-                    if key in settings:
-                        value = settings[key]
-                        if isinstance(var, tk.BooleanVar):
-                            var.set(bool(value))
-                        elif isinstance(var, tk.IntVar):
-                            var.set(int(value))
-                        elif isinstance(var, tk.DoubleVar):
-                            var.set(float(value))
-                        elif isinstance(var, tk.StringVar):
-                            var.set(str(value) if value is not None else '')
+                # Настройки (states) НЕ загружаем при старте - оставляем значения по умолчанию
+                # Это предотвращает автоматическое применение настроек из предыдущей сессии
         except Exception:
             self.user_templates = [{'name': f'Default {i+1}', 'pattern': p} for i, p in enumerate(DEFAULT_TEMPLATES)]
 
