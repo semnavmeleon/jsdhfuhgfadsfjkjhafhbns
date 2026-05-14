@@ -4,11 +4,22 @@ import struct
 import threading
 import os
 import json
-from datetime import timedelta
+import random
+import tempfile
+import queue
+import math
+from datetime import timedelta, datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from core_logic import TrackInfo, ModificationWorker
 
-CONFIG_FILE = "vk_modifier_config.json"
+try:
+    from tkinterdnd2 import DND_FILES as _DND_FILES
+    _DND_AVAILABLE = True
+except ImportError:
+    _DND_AVAILABLE = False
+    _DND_FILES = None
 
+CONFIG_FILE = "vk_modifier_config.json"
 SUPPORTED_FORMATS = {
     'mp3': 'MP3 (lossy)',
     'flac': 'FLAC (lossless)',
@@ -16,7 +27,53 @@ SUPPORTED_FORMATS = {
     'ogg': 'OGG Vorbis (lossy)',
     'aac': 'AAC (lossy)',
     'm4a': 'M4A AAC (lossy)',
+    'wma': 'WMA (lossy)',
+    'opus': 'Opus (lossy)',
+    'aiff': 'AIFF (lossless)',
+    'alac': 'ALAC (lossless)',
+    'wv': 'WavPack (lossless/hybrid)',
+    'ape': "Monkey's Audio (lossless)",
+    'tta': 'True Audio (lossless)',
+    'ac3': 'AC3/Dolby Digital (lossy)',
+    'dts': 'DTS (lossy)',
+    'mp2': 'MPEG Layer 2 (lossy)',
+    'mpc': 'Musepack (lossy)',
+    'spx': 'Speex (speech)',
+    'amr': 'AMR (speech)',
+    'au': 'AU/Sun Audio (uncompressed)',
+    'mka': 'Matroska Audio (container)',
+    'oga': 'Ogg FLAC (lossless)',
+    'caf': 'Core Audio Format (uncompressed)',
+    'shn': 'Shorten (lossless)',
 }
+
+INPUT_EXTENSIONS = [
+    ("Все аудио файлы", ".mp3 .flac .wav .ogg .aac .m4a .wma .opus .aiff .alac .wv .ape .tta .ac3 .dts .mp2 .mpc .spx .amr .au .mka .oga .caf .shn"),
+    ("MP3 files", ".mp3"),
+    ("FLAC files", ".flac"),
+    ("WAV files", ".wav"),
+    ("OGG files", ".ogg"),
+    ("AAC files", ".aac"),
+    ("M4A files", ".m4a"),
+    ("WMA files", ".wma"),
+    ("Opus files", ".opus"),
+    ("AIFF files", ".aiff"),
+    ("ALAC files", ".alac"),
+    ("WavPack files", ".wv"),
+    ("Monkey's Audio files", ".ape"),
+    ("True Audio files", ".tta"),
+    ("AC3 files", ".ac3"),
+    ("DTS files", ".dts"),
+    ("MP2 files", ".mp2"),
+    ("Musepack files", ".mpc"),
+    ("Speex files", ".spx"),
+    ("AMR files", ".amr"),
+    ("AU files", ".au"),
+    ("Matroska Audio files", ".mka"),
+    ("Ogg FLAC files", ".oga"),
+    ("CAF files", ".caf"),
+    ("Shorten files", ".shn"),
+]
 
 FORMAT_CODECS = {
     'mp3': 'libmp3lame',
@@ -25,13 +82,33 @@ FORMAT_CODECS = {
     'ogg': 'libvorbis',
     'aac': 'aac',
     'm4a': 'aac',
+    'wma': 'wmav2',
+    'opus': 'libopus',
+    'aiff': 'pcm_s16be',
+    'alac': 'alac',
+    'wv': 'wavpack',
+    'ape': 'ape',
+    'tta': 'tta',
+    'ac3': 'ac3',
+    'dts': 'dts',
+    'mp2': 'mp2',
+    'mpc': 'mpc',
+    'spx': 'libspeex',
+    'amr': 'libopencore_amrnb',
+    'au': 'pcm_s16be',
+    'mka': 'libvorbis',
+    'oga': 'flac',
+    'caf': 'pcm_s16le',
+    'shn': 'shorten',
 }
 
 QUALITY_PRESETS = {
-    'mp3': ['320 kbps (CBR)', '256 kbps (CBR)', '192 kbps (CBR)', '128 kbps (CBR)', 'VBR Высшее (Q0)'],
+    'mp3': ['320 kbps (CBR)', '256 kbps (CBR)', '192 kbps (CBR)', '128 kbps (CBR)', 'VBR Высшее (Q0)', 'VBR Высокое (Q2)', 'VBR Среднее (Q4)', 'VBR Низкое (Q6)'],
     'aac': ['320 kbps', '256 kbps', '192 kbps', '128 kbps'],
     'm4a': ['320 kbps', '256 kbps', '192 kbps', '128 kbps'],
-    'ogg': ['Качество 10 (макс)', 'Качество 8 (высокое)', 'Качество 6 (среднее)'],
+    'ogg': ['Качество 10 (макс)', 'Качество 8 (высокое)', 'Качество 6 (среднее)', 'Качество 4 (низкое)', 'Качество 2 (мин)'],
+    'opus': ['256 kbps', '192 kbps', '128 kbps', '96 kbps', '64 kbps'],
+    'wma': ['320 kbps', '256 kbps', '192 kbps', '128 kbps'],
 }
 
 
