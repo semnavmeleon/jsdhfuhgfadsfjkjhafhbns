@@ -1636,6 +1636,7 @@ class VKModifierApp:
         self.lbl_fixed_freqs.pack(side='left', padx=(10, 0))
         freq_entry = ttk.Entry(sj_mode_frame, textvariable=self.v_spec_jitter_fixed_freqs, width=25)
         freq_entry.pack(side='left', padx=5)
+        self._bind_copy_paste(freq_entry)
         r += 1
         # Поля для manual режима
         sj_manual_frame = ttk.Frame(f)
@@ -1643,12 +1644,15 @@ class VKModifierApp:
         ttk.Label(sj_manual_frame, text="Частоты:").pack(side='left')
         manual_freqs_entry = ttk.Entry(sj_manual_frame, textvariable=self.v_spec_jitter_manual_freqs, width=20)
         manual_freqs_entry.pack(side='left', padx=5)
+        self._bind_copy_paste(manual_freqs_entry)
         ttk.Label(sj_manual_frame, text="Ослабления:").pack(side='left', padx=(10, 0))
         manual_atts_entry = ttk.Entry(sj_manual_frame, textvariable=self.v_spec_jitter_manual_atts, width=15)
         manual_atts_entry.pack(side='left', padx=5)
+        self._bind_copy_paste(manual_atts_entry)
         ttk.Label(sj_manual_frame, text="Ширины:").pack(side='left', padx=(10, 0))
         manual_widths_entry = ttk.Entry(sj_manual_frame, textvariable=self.v_spec_jitter_manual_widths, width=15)
         manual_widths_entry.pack(side='left', padx=5)
+        self._bind_copy_paste(manual_widths_entry)
         ttk.Label(sj_manual_frame, text="Ширина по умолчанию:").pack(side='left', padx=(10, 0))
         self._spin(sj_manual_frame, self.v_spec_jitter_fixed_width, 0.01, 2.0, 0.01, width=5).pack(side='left', padx=2)
         r += 1
@@ -2777,8 +2781,9 @@ class VKModifierApp:
                     'user_templates': self.user_templates,
                     'settings': settings
                 }, f, indent=2, ensure_ascii=False)
-        except Exception:
-            pass
+        except Exception as e:
+            self._log(f"Ошибка сохранения конфигурации: {e}", 'error')
+
 
     def _log(self, message, level='info', to_converter=False):
         ts = datetime.now().strftime('%H:%M:%S')
@@ -3061,7 +3066,7 @@ def _compute_preview_static(samples, s):
         n = len(result)
 
     if s.get('spec_jitter', False) and n > 0:
-        count = s.get('spec_jitter_count', 5)
+        count = int(s.get('spec_jitter_count', 5))
         att = s.get('spec_jitter_att', 15)
         floor = 10 ** (-att / 20)
         dip_w = max(1, n // (count * 6))
