@@ -2423,6 +2423,30 @@ class VKModifierApp:
         self.v_spec_jitter_manual_atts.set(s.get('spec_jitter_manual_atts', ''))
         self.v_spec_jitter_manual_widths.set(s.get('spec_jitter_manual_widths', ''))
         self.v_spec_jitter_fixed_width.set(s.get('spec_jitter_fixed_width', 0.2))
+        
+        # Загрузка из нового формата (spectral_jitter_manual_config)
+        manual_cfg = s.get('spectral_jitter_manual_config')
+        if manual_cfg:
+            mode = manual_cfg.get('mode', 'random')
+            self.v_spec_jitter_mode.set(mode)
+            if mode == 'manual':
+                freqs = manual_cfg.get('frequencies', [])
+                atts = manual_cfg.get('attenuations', [])
+                widths = manual_cfg.get('widths', [])
+                if freqs:
+                    self.v_spec_jitter_manual_freqs.set(', '.join(str(f) for f in freqs))
+                if atts:
+                    self.v_spec_jitter_manual_atts.set(', '.join(str(a) for a in atts))
+                if widths:
+                    self.v_spec_jitter_manual_widths.set(', '.join(str(w) for w in widths))
+                self.v_spec_jitter_fixed_width.set(manual_cfg.get('fixed_width', 0.2))
+            elif mode == 'fixed':
+                freqs = manual_cfg.get('frequencies', [])
+                if freqs:
+                    self.v_spec_jitter_fixed_freqs.set(', '.join(str(f) for f in freqs))
+                if 'fixed_attenuation' in manual_cfg:
+                    self.v_spec_jitter_att.set(manual_cfg['fixed_attenuation'])
+                self.v_spec_jitter_fixed_width.set(manual_cfg.get('fixed_width', 0.2))
 
         # Загружаем дополнительные настройки из пресета
         self.v_filename_template.set(s.get('filename_template', 'VK_{n:03d}_custom'))
@@ -2479,6 +2503,37 @@ class VKModifierApp:
         except ValueError:
             pass
 
+        # Сборка manual_config для спектрального джиттера
+        spec_jitter_mode = self.v_spec_jitter_mode.get()
+        manual_config = {'mode': spec_jitter_mode}
+        
+        # Парсинг частот для manual режима
+        if spec_jitter_mode == 'manual':
+            freqs_str = self.v_spec_jitter_manual_freqs.get().strip()
+            atts_str = self.v_spec_jitter_manual_atts.get().strip()
+            widths_str = self.v_spec_jitter_manual_widths.get().strip()
+            
+            if freqs_str:
+                manual_config['frequencies'] = [float(f.strip()) for f in freqs_str.split(',') if f.strip()]
+            if atts_str:
+                manual_config['attenuations'] = [float(a.strip()) for a in atts_str.split(',') if a.strip()]
+            if widths_str:
+                manual_config['widths'] = [float(w.strip()) for w in widths_str.split(',') if w.strip()]
+            
+            manual_config['fixed_width'] = self.v_spec_jitter_fixed_width.get()
+        
+        # Парсинг частот для fixed режима
+        elif spec_jitter_mode == 'fixed':
+            freqs_str = self.v_spec_jitter_fixed_freqs.get().strip()
+            if freqs_str:
+                manual_config['frequencies'] = [float(f.strip()) for f in freqs_str.split(',') if f.strip()]
+            manual_config['fixed_attenuation'] = self.v_spec_jitter_att.get()
+            manual_config['fixed_width'] = self.v_spec_jitter_fixed_width.get()
+        
+        # Для random режима
+        else:
+            manual_config['fixed_attenuation'] = self.v_spec_jitter_att.get() if self.v_spec_jitter_att.get() > 0 else None
+
         return {
             'methods': {
                 'pitch': self.v_pitch.get(), 'speed': self.v_speed.get(), 'eq': self.v_eq.get(), 'silence': self.v_silence.get(),
@@ -2492,6 +2547,11 @@ class VKModifierApp:
                 'psychoacoustic_noise': self.v_psycho_noise.get(), 'saturation': self.v_saturation.get(),
                 'temporal_jitter': self.v_temp_jitter.get(), 'spectral_jitter': self.v_spec_jitter.get(), 'vk_infrasonic': self.v_vk_infra.get()
             },
+            'spectral_jitter_count': self.v_spec_jitter_count.get(),
+            'spectral_jitter_attenuation': self.v_spec_jitter_att.get(),
+            'spectral_jitter_fixed_frequencies': manual_config.get('frequencies') if spec_jitter_mode == 'fixed' else None,
+            'spectral_jitter_fixed_attenuation': manual_config.get('fixed_attenuation'),
+            'spectral_jitter_manual_config': manual_config,
             'filename_template': self.v_filename_template.get() or 'VK_{n:03d}_custom',
             'quality': quality_map[q_idx],
             'rename_files': self.v_rename.get(),
