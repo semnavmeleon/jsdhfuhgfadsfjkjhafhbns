@@ -324,8 +324,12 @@ class VKModifierApp:
         self.v_spec_jitter = tk.BooleanVar()
         self.v_spec_jitter_count = tk.DoubleVar(value=5.0)
         self.v_spec_jitter_att = tk.DoubleVar(value=15.0)
-        self.v_spec_jitter_mode = tk.StringVar(value='random')  # 'random' или 'fixed'
+        self.v_spec_jitter_mode = tk.StringVar(value='random')  # 'random', 'fixed' или 'manual'
         self.v_spec_jitter_fixed_freqs = tk.StringVar(value='')  # список частот через запятую
+        self.v_spec_jitter_manual_freqs = tk.StringVar(value='')  # частоты для manual режима
+        self.v_spec_jitter_manual_atts = tk.StringVar(value='')  # ослабления для manual режима
+        self.v_spec_jitter_manual_widths = tk.StringVar(value='')  # ширины для manual режима
+        self.v_spec_jitter_fixed_width = tk.DoubleVar(value=0.2)  # фиксированная ширина
         self.v_vk_infra = tk.BooleanVar()
         self.v_vk_infra_mode = tk.StringVar(value='modulated')
         self.v_vk_infra_amplitude = tk.DoubleVar(value=0.35)
@@ -1281,6 +1285,8 @@ class VKModifierApp:
                 'temp_jitter': self.v_temp_jitter.get(), 'jitter_intensity': self.v_jitter_intensity.get(), 'jitter_freq': self.v_jitter_freq.get(),
                 'spec_jitter': self.v_spec_jitter.get(), 'spec_jitter_count': self.v_spec_jitter_count.get(), 'spec_jitter_att': self.v_spec_jitter_att.get(),
                 'spec_jitter_mode': self.v_spec_jitter_mode.get(), 'spec_jitter_fixed_freqs': self.v_spec_jitter_fixed_freqs.get(),
+                'spec_jitter_manual_freqs': self.v_spec_jitter_manual_freqs.get(), 'spec_jitter_manual_atts': self.v_spec_jitter_manual_atts.get(),
+                'spec_jitter_manual_widths': self.v_spec_jitter_manual_widths.get(), 'spec_jitter_fixed_width': self.v_spec_jitter_fixed_width.get(),
             }
         except tk.TclError:
             return
@@ -1623,11 +1629,28 @@ class VKModifierApp:
         sj_mode_frame = ttk.Frame(f)
         sj_mode_frame.grid(row=r, column=0, columnspan=4, sticky='w', padx=20, pady=2)
         ttk.Label(sj_mode_frame, text="Режим:").pack(side='left')
-        mode_combo = ttk.Combobox(sj_mode_frame, textvariable=self.v_spec_jitter_mode, values=['random', 'fixed'], width=8, state='readonly')
+        mode_combo = ttk.Combobox(sj_mode_frame, textvariable=self.v_spec_jitter_mode, values=['random', 'fixed', 'manual'], width=8, state='readonly')
         mode_combo.pack(side='left', padx=5)
-        ttk.Label(sj_mode_frame, text="Частоты (через запятую):").pack(side='left', padx=(10, 0))
+        # Поле для fixed режима
+        self.lbl_fixed_freqs = ttk.Label(sj_mode_frame, text="Частоты (через запятую):")
+        self.lbl_fixed_freqs.pack(side='left', padx=(10, 0))
         freq_entry = ttk.Entry(sj_mode_frame, textvariable=self.v_spec_jitter_fixed_freqs, width=25)
         freq_entry.pack(side='left', padx=5)
+        r += 1
+        # Поля для manual режима
+        sj_manual_frame = ttk.Frame(f)
+        sj_manual_frame.grid(row=r, column=0, columnspan=4, sticky='w', padx=20, pady=2)
+        ttk.Label(sj_manual_frame, text="Частоты:").pack(side='left')
+        manual_freqs_entry = ttk.Entry(sj_manual_frame, textvariable=self.v_spec_jitter_manual_freqs, width=20)
+        manual_freqs_entry.pack(side='left', padx=5)
+        ttk.Label(sj_manual_frame, text="Ослабления:").pack(side='left', padx=(10, 0))
+        manual_atts_entry = ttk.Entry(sj_manual_frame, textvariable=self.v_spec_jitter_manual_atts, width=15)
+        manual_atts_entry.pack(side='left', padx=5)
+        ttk.Label(sj_manual_frame, text="Ширины:").pack(side='left', padx=(10, 0))
+        manual_widths_entry = ttk.Entry(sj_manual_frame, textvariable=self.v_spec_jitter_manual_widths, width=15)
+        manual_widths_entry.pack(side='left', padx=5)
+        ttk.Label(sj_manual_frame, text="Ширина по умолчанию:").pack(side='left', padx=(10, 0))
+        self._spin(sj_manual_frame, self.v_spec_jitter_fixed_width, 0.01, 2.0, 0.01, width=5).pack(side='left', padx=2)
         r += 1
 
         ttk.Separator(f, orient='horizontal').grid(row=r, column=0, columnspan=5, sticky='ew', pady=6)
@@ -2396,6 +2419,10 @@ class VKModifierApp:
         self.v_spec_jitter_att.set(s.get('spec_jitter_att', 15.0))
         self.v_spec_jitter_mode.set(s.get('spec_jitter_mode', 'random'))
         self.v_spec_jitter_fixed_freqs.set(s.get('spec_jitter_fixed_freqs', ''))
+        self.v_spec_jitter_manual_freqs.set(s.get('spec_jitter_manual_freqs', ''))
+        self.v_spec_jitter_manual_atts.set(s.get('spec_jitter_manual_atts', ''))
+        self.v_spec_jitter_manual_widths.set(s.get('spec_jitter_manual_widths', ''))
+        self.v_spec_jitter_fixed_width.set(s.get('spec_jitter_fixed_width', 0.2))
 
         # Загружаем дополнительные настройки из пресета
         self.v_filename_template.set(s.get('filename_template', 'VK_{n:03d}_custom'))
@@ -2597,6 +2624,10 @@ class VKModifierApp:
             'spec_jitter_att': self.v_spec_jitter_att,
             'spec_jitter_mode': self.v_spec_jitter_mode,
             'spec_jitter_fixed_freqs': self.v_spec_jitter_fixed_freqs,
+            'spec_jitter_manual_freqs': self.v_spec_jitter_manual_freqs,
+            'spec_jitter_manual_atts': self.v_spec_jitter_manual_atts,
+            'spec_jitter_manual_widths': self.v_spec_jitter_manual_widths,
+            'spec_jitter_fixed_width': self.v_spec_jitter_fixed_width,
             # Инфразвуковой генератор
             'vk_infra_enabled': self.v_vk_infra,
             'vk_infra_mode': self.v_vk_infra_mode,

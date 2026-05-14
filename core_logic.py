@@ -309,7 +309,8 @@ class ModificationWorker(threading.Thread):
         depth = max(0.0, min(1.0, intensity * 100))  # 0.002 → 0.2
         return f"vibrato=f={freq_clamped:.2f}:d={depth:.3f}"
 
-    def _build_spectral_jitter_filter(self, num_notches=5, max_attenuation=15, fixed_frequencies=None, fixed_attenuation=None):
+    def _build_spectral_jitter_filter(self, num_notches=5, max_attenuation=15, fixed_frequencies=None, 
+                                       fixed_attenuation=None, manual_config=None):
         """Строит цепочку notch-фильтров в слышимом диапазоне.
         
         Args:
@@ -317,6 +318,15 @@ class ModificationWorker(threading.Thread):
             max_attenuation: максимальное ослабление в dB (может быть дробным)
             fixed_frequencies: список фиксированных частот для детерминированного режима
             fixed_attenuation: фиксированное значение ослабления для всех фильтров
+            manual_config: словарь с полной ручной настройкой:
+                {
+                    'mode': 'random' | 'fixed' | 'manual',
+                    'frequencies': [список частот],  # для manual и fixed
+                    'attenuations': [список ослаблений],  # для manual (опционально)
+                    'widths': [список ширин полос],  # для manual (опционально)
+                    'fixed_attenuation': единое ослабление для fixed режима,
+                    'fixed_width': единая ширина для fixed/manual режима
+                }
         """
         filters = []
         freq_pool = [
@@ -324,13 +334,34 @@ class ModificationWorker(threading.Thread):
             2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500
         ]
         
+        # Ручной режим с полной настройкой каждого параметра
+        if manual_config is not None and manual_config.get('mode') == 'manual':
+            frequencies = manual_config.get('frequencies', [])
+            attenuations = manual_config.get('attenuations', [])
+            widths = manual_config.get('widths', [])
+            default_width = manual_config.get('fixed_width', 0.2)
+            
+            for i, freq in enumerate(frequencies):
+                att = attenuations[i] if i < len(attenuations) else max_attenuation
+                width = widths[i] if i < len(widths) else default_width
+                filters.append(f"equalizer=f={freq}:width_type=o:width={width:.3f}:g=-{att}")
+            return ", ".join(filters)
+        
         # Детерминированный режим с фиксированными частотами
         if fixed_frequencies is not None and len(fixed_frequencies) > 0:
             selected = fixed_frequencies
+            default_width = 0.2
+            if manual_config and 'fixed_width' in manual_config:
+                default_width = manual_config['fixed_width']
+                
             for freq in selected:
                 att = fixed_attenuation if fixed_attenuation is not None else max_attenuation
-                width = 0.2  # фиксированная ширина для детерминированного режима
-                filters.append(f"equalizer=f={freq}:width_type=o:width={width:.2f}:g=-{att}")
+                if manual_config and 'fixed_attenuation' in manual_config:
+                    att = manual_config['fixed_attenuation']
+                width = default_width
+                if manual_config and 'widths' in manual_config and len(manual_config['widths']) > 0:
+                    width = manual_config['widths'][0] if len(manual_config['widths']) == 1 else default_width
+                filters.append(f"equalizer=f={freq}:width_type=o:width={width:.3f}:g=-{att}")
         else:
             # Рандомный режим
             num_notches_int = int(round(num_notches))
@@ -344,7 +375,7 @@ class ModificationWorker(threading.Thread):
                 else:
                     att = random.uniform(max_attenuation / 2, max_attenuation)
                 width = random.uniform(0.1, 0.3)
-                filters.append(f"equalizer=f={freq}:width_type=o:width={width:.2f}:g=-{att}")
+                filters.append(f"equalizer=f={freq}:width_type=o:width={width:.3f}:g=-{att}")
         
         return ", ".join(filters)
 
@@ -531,10 +562,11 @@ class ModificationWorker(threading.Thread):
         if self.settings['methods'].get('spectral_jitter', False):
             num_notches = self.settings.get('spectral_jitter_count', 5)
             att = self.settings.get('spectral_jitter_attenuation', 15)
-            # Поддержка детерминированного режима с фиксированными частотами
+            # Поддержка детерминированного режима с фиксированными частотами и ручного режима
             fixed_freqs = self.settings.get('spectral_jitter_fixed_frequencies', None)
             fixed_att = self.settings.get('spectral_jitter_fixed_attenuation', None)
-            spec_jitter = self._build_spectral_jitter_filter(num_notches, att, fixed_freqs, fixed_att)
+            manual_cfg = self.settings.get('spectral_jitter_manual_config', None)
+            spec_jitter = self._build_spectral_jitter_filter(num_notches, att, fixed_freqs, fixed_att, manual_cfg)
             if spec_jitter:
                 filters.append(spec_jitter)
         
