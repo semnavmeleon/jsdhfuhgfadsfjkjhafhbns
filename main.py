@@ -616,14 +616,14 @@ class VKModifierApp:
     def _build_settings_tabs(self):
         # Создаём вкладки без content
         tab_list = [
-            ft.Tab(text="Базовые"),
-            ft.Tab(text="Спектральные"),
-            ft.Tab(text="Текстурные"),
-            ft.Tab(text="Дополнительные"),
-            ft.Tab(text="Метаданные"),
-            ft.Tab(text="Имена файлов"),
-            ft.Tab(text="Технические"),
-            ft.Tab(text="Системные"),
+            ft.Tab(label="Базовые"),
+            ft.Tab(label="Спектральные"),
+            ft.Tab(label="Текстурные"),
+            ft.Tab(label="Дополнительные"),
+            ft.Tab(label="Метаданные"),
+            ft.Tab(label="Имена файлов"),
+            ft.Tab(label="Технические"),
+            ft.Tab(label="Системные"),
         ]
         self.tabs = ft.Tabs(
             *tab_list,
