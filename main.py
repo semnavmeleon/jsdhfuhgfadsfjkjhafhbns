@@ -626,7 +626,7 @@ class VKModifierApp:
             ft.Tab(label="Системные"),
         ]
         self.tabs = ft.Tabs(
-            *tab_list,
+            tabs=tab_list,
             selected_index=0,
             expand=1,
             on_change=self._on_tab_changed
