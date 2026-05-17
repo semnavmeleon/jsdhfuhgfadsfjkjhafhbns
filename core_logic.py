@@ -1424,15 +1424,9 @@ class ModificationWorker(threading.Thread):
             with open(tmp_path, 'rb') as f:
                 data = bytearray(f.read())
         except Exception as e:
-            # Ensure temporary file is cleaned up in case of error
-            try:
-                if os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
-            except Exception:
-                pass
             raise e
         finally:
-            # Always attempt to clean up the temporary file
+            # Clean up temporary file after reading
             try:
                 if os.path.exists(tmp_path):
                     os.unlink(tmp_path)
