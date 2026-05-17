@@ -1462,42 +1462,9 @@ class ModificationWorker(threading.Thread):
                     fake_bytes = random.randint(0x01000000, 0x7FFFFFFF)
                     data[byte_offset: byte_offset + 4] = fake_bytes.to_bytes(4, 'big')
 
-        out_tmp = file_path + '.vkmod_out'
+        # Write the patched data directly to the original file path
         try:
-            with open(out_tmp, 'wb') as f:
+            with open(file_path, 'wb') as f:
                 f.write(data)
-            
-            # Handle potential exceptions during the replace operation
-            # Check if source file still exists before attempting replace
-            if not os.path.exists(file_path):
-                # Source file doesn't exist anymore, likely already processed by another step
-                # Clean up the temporary output file and exit gracefully
-                try:
-                    if os.path.exists(out_tmp):
-                        os.unlink(out_tmp)
-                except Exception:
-                    pass
-                return  # Exit early since the source file is gone
-                
-            os.replace(out_tmp, file_path)
-        except OSError as e:
-            # Clean up the temporary output file if replace fails
-            try:
-                if os.path.exists(out_tmp):
-                    os.unlink(out_tmp)
-            except Exception:
-                pass
-            # Check if the error is due to the source file not existing
-            if not os.path.exists(file_path):
-                # If the source file doesn't exist, this is expected in preview mode
-                return  # Just return without raising error
-            else:
-                raise e
         except Exception as e:
-            # For other exceptions, clean up and re-raise
-            try:
-                if os.path.exists(out_tmp):
-                    os.unlink(out_tmp)
-            except Exception:
-                pass
             raise e

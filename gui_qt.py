@@ -2594,13 +2594,15 @@ class MainWindow(QMainWindow):
         self.modifier_panel.waveform.show_after(output_path)
         self.modifier_panel.log.append("Предпросмотр готов.", "success")
         if self._preview_worker:
-            QTimer.singleShot(5000, self._preview_worker.cleanup)
+            QTimer.singleShot(60000, self._preview_worker.cleanup)
 
     def _on_preview_error(self, msg: str):
         self.modifier_panel.waveform.set_loading(False)
         self.modifier_panel.log.append(f"Предпросмотр: ошибка — {msg}", "error")
+        # Не удаляем временную папку сразу при ошибке - даём время на диагностику
+        # и предотвращаем гонку условий если worker ещё работает
         if self._preview_worker:
-            QTimer.singleShot(0, self._preview_worker.cleanup)
+            QTimer.singleShot(10000, self._preview_worker.cleanup)
 
 
     def _start_converter(self):
