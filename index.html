@@ -2,108 +2,420 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Полис + Отказ от передачи документов</title>
 <style>
-  body { font-family: Arial, sans-serif; max-width: 760px; margin: 40px auto; color: #222; padding: 0 16px; }
-  h1 { font-size: 19px; }
-  h3 { font-size: 15px; margin-top: 0; }
-  .box { border: 1px solid #ccc; border-radius: 8px; padding: 20px 24px; margin-bottom: 20px; }
-  input[type=file] { display: block; margin: 12px 0; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin: 14px 0; }
-  .grid label.wide { grid-column: 1 / -1; }
-  .grid label { display: flex; flex-direction: column; font-size: 12px; color: #555; gap: 4px; }
-  .grid input { font-size: 14px; padding: 6px 8px; border: 1px solid #bbb; border-radius: 4px; }
-  .grid input.missing { border-color: #b00020; background: #fff5f5; }
-  .row-with-btn { display: flex; gap: 6px; }
-  .row-with-btn input { flex: 1; }
-  .row-with-btn button { flex: 0 0 auto; padding: 4px 10px; border: 1px solid #bbb; border-radius: 4px; background: #f2f2f2; cursor: pointer; font-size: 15px; }
-  button#genBtn { background: #2a6fdb; color: #fff; border: none; padding: 10px 22px; border-radius: 4px; font-size: 15px; cursor: pointer; margin-top: 6px; }
-  button#genBtn:disabled { background: #999; }
-  button#printBtn, button#nextBtn { background: #fff; color: #2a6fdb; border: 1px solid #2a6fdb; padding: 9px 18px; border-radius: 4px; font-size: 15px; cursor: pointer; margin-top: 6px; margin-left: 8px; }
-  button#nextBtn { color: #444; border-color: #bbb; }
-  .status { margin-top: 10px; font-size: 14px; }
-  .status.error { color: #b00020; white-space: pre-wrap; }
-  .status.ok { color: #1a7d34; }
-  .hint { color: #666; font-size: 13px; margin-top: 4px; }
-  .policy-label { font-size: 13px; color: #666; margin-top: -6px; margin-bottom: 6px; }
-  #poolSummary { font-weight: normal; color: #666; font-size: 13px; }
-  .pool-list { display: flex; flex-direction: column; gap: 4px; max-height: 280px; overflow-y: auto; }
-  .pool-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 13px; }
-  .pool-row:hover { background: #f5f7fb; }
-  .pool-row.active { border-color: #2a6fdb; background: #eef3fd; }
+  :root {
+    --bg: #f3f5fa;
+    --card-bg: #ffffff;
+    --border: #e0e4ee;
+    --border-soft: #ececf2;
+    --text: #1c2130;
+    --text-muted: #656c7a;
+    --text-faint: #98a0ae;
+    --primary: #2a6fdb;
+    --primary-dark: #1f57ad;
+    --primary-bg: #eaf1fd;
+    --success: #16803c;
+    --success-bg: #e9f9ef;
+    --warn: #9a6a00;
+    --warn-bg: #fff6e0;
+    --error: #c22032;
+    --error-bg: #fdecee;
+    --radius-lg: 10px;
+    --radius-md: 8px;
+    --radius-sm: 5px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 32px 20px 60px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 980px; margin: 0 auto; }
+
+  h1 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 20px;
+  }
+
+  .layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  /* --- sidebar --- */
+  .sidebar {
+    flex: 0 0 300px;
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px 18px;
+  }
+
+  .sidebar h2, .main h2 {
+    font-size: 12.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--text-faint);
+    margin: 0 0 12px;
+  }
+
+  input[type=file] {
+    display: block;
+    width: 100%;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  input[type=file]::file-selector-button {
+    font: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    color: #fff;
+    background: var(--primary);
+    border: none;
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    margin-right: 10px;
+  }
+  input[type=file]::file-selector-button:hover { background: var(--primary-dark); }
+
+  /* --- status line --- */
+  .status { font-size: 12.5px; }
+  .status:empty { display: none; }
+  .status.ok { color: var(--success); }
+  .status.warn { color: var(--warn); }
+  .status.error { color: var(--error); }
+
+  /* --- pool list --- */
+  #poolBox { display: none; }
+  .pool-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .pool-head h2 { margin: 0; }
+  .pool-count { font-size: 12px; color: var(--text-faint); }
+
+  .pool-list { display: flex; flex-direction: column; gap: 2px; max-height: 360px; overflow-y: auto; margin: 0 -8px; }
+  .pool-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .pool-row:hover { background: #f4f6fb; }
+  .pool-row.active { background: var(--primary-bg); }
   .pool-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .badge { flex: 0 0 auto; width: 18px; text-align: center; font-weight: bold; }
-  .badge-pending { color: #999; }
-  .badge-ok { color: #1a7d34; }
-  .badge-warn { color: #b8860b; }
-  .badge-done { color: #2a6fdb; }
-  .badge-error { color: #b00020; }
-  .pool-remove { flex: 0 0 auto; border: none; background: transparent; color: #999; cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; }
-  .pool-remove:hover { color: #b00020; }
+  .pool-row.active .pool-name { color: var(--primary-dark); font-weight: 600; }
+
+  .dot {
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-faint);
+  }
+  .dot-pending { background: var(--text-faint); }
+  .dot-ok { background: var(--success); }
+  .dot-warn { background: var(--warn); }
+  .dot-done { background: var(--primary); }
+  .dot-error { background: var(--error); }
+
+  .pool-remove {
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    color: var(--text-faint);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: var(--radius-sm);
+  }
+  .pool-remove:hover { color: var(--error); background: var(--error-bg); }
+
+  .secondary-btn {
+    width: 100%;
+    margin-top: 10px;
+    background: #fff;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .secondary-btn:hover { background: #f4f6fb; border-color: #ccd3e2; }
+  .secondary-btn:disabled { color: var(--text-faint); cursor: default; background: #fff; }
+
+  /* --- main --- */
+  .main { flex: 1; min-width: 0; }
+
+  .empty-state {
+    color: var(--text-faint);
+    font-size: 13.5px;
+    padding: 40px 0;
+    text-align: center;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-lg);
+  }
+
+  #fileStatus { margin-bottom: 10px; }
+
+  .review-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .file-context {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .file-context span#activeFileName { color: var(--text); font-weight: 600; }
+  .policy-chip { color: var(--text-faint); }
+
+  .review-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+    margin-left: 16px;
+  }
+  .nav-btn {
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .nav-btn:hover:not(:disabled) { background: #f4f6fb; color: var(--text); }
+  .nav-btn:disabled { color: var(--border); cursor: default; }
+  .file-counter { font-size: 12px; color: var(--text-faint); min-width: 46px; text-align: center; }
+
+  .section-label {
+    grid-column: 1 / -1;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--text-faint);
+    margin: 14px 0 -2px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-soft);
+  }
+  .section-label:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 16px;
+  }
+  .grid label.wide { grid-column: 1 / -1; }
+  .grid label {
+    display: flex;
+    flex-direction: column;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    gap: 6px;
+  }
+  .grid input {
+    font: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text);
+    padding: 8px 10px;
+    border: 1px solid #d6dceb;
+    border-radius: var(--radius-sm);
+    background: #fff;
+  }
+  .grid input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-bg);
+  }
+  .grid input.missing { border-color: var(--error); background: var(--error-bg); }
+  .grid input.missing:focus { box-shadow: 0 0 0 3px var(--error-bg); }
+
+  .row-with-btn { display: flex; gap: 6px; }
+  .row-with-btn input { flex: 1; min-width: 0; }
+  .row-with-btn button {
+    flex: 0 0 auto;
+    padding: 0 11px;
+    border: 1px solid #d6dceb;
+    border-radius: var(--radius-sm);
+    background: #f8f9fc;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .row-with-btn button:hover { background: var(--primary-bg); color: var(--primary-dark); }
+
+  /* --- actions --- */
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  button#genBtn {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button#genBtn:hover { background: var(--primary-dark); }
+  button#genBtn:disabled { background: #b7c2d6; cursor: default; }
+
+  button#printBtn {
+    background: #fff;
+    border: 1px solid #d6dceb;
+    color: var(--text);
+    padding: 9px 16px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button#printBtn:hover { background: #f4f6fb; }
+
+  #genStatus { margin-top: 10px; }
 </style>
 </head>
 <body>
-<h1>Полис ОСАГО (СAO «ВСК»)</h1>
+<div class="page">
 
-<div class="box">
-  <label><b>1) Загрузите PDF-полисы</b></label>
-  <input type="file" id="fileInput" accept="application/pdf" multiple>
-  <div class="hint">Можно выбрать сразу несколько файлов и догружать ещё.</div>
-  <div class="status" id="parseStatus"></div>
-</div>
+  <h1>полисОСАГОИНАТОР</h1>
 
-<div class="box" id="poolBox" style="display:none">
-  <h3>Очередь файлов <span id="poolSummary"></span></h3>
-  <div class="pool-list" id="poolList"></div>
-</div>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="card">
+        <h2>Загрузка</h2>
+        <input type="file" id="fileInput" accept="application/pdf" multiple>
+        <div class="status" id="parseStatus"></div>
+      </div>
 
-<div class="box" id="reviewForm" style="display:none">
-  <h3>2) Проверьте данные — <span id="activeFileName"></span> (полис <span id="f_policyLabel"></span>)</h3>
-  <div class="grid">
-    <label class="wide">ФИО страхователя
-      <input id="f_fio">
-    </label>
-    <label class="wide">ФИО в родительном падеже (строка «от»)
-      <span class="row-with-btn">
-        <input id="f_fioGenitive">
-        <button type="button" id="recalcGenitiveBtn" title="Пересчитать из ФИО выше">&#8635;</button>
-      </span>
-    </label>
-    <label>Дата рождения
-      <input id="f_dob" placeholder="ДД.ММ.ГГГГ">
-    </label>
-    <label>Серия паспорта
-      <input id="f_passSeries">
-    </label>
-    <label>Номер паспорта
-      <input id="f_passNumber">
-    </label>
-    <label>Дата выдачи паспорта
-      <input id="f_passDate" placeholder="ДД.ММ.ГГГГ">
-    </label>
-    <label class="wide">Кем выдан паспорт
-      <span class="row-with-btn">
-        <input id="f_passIssuer" placeholder="напр. ГУ МВД РОССИИ ПО МОСКОВСКОЙ ОБЛАСТИ">
-        <button type="button" id="recalcIssuerBtn" title="Подставить по адресу регистрации">&#8635;</button>
-      </span>
-    </label>
-    <label class="wide">Адрес регистрации
-      <input id="f_address">
-    </label>
-    <label>Число (дата заявления)
-      <input id="f_day" placeholder="06">
-    </label>
-    <label>Месяц словом
-      <input id="f_month" placeholder="января">
-    </label>
-    <label>Год
-      <input id="f_year" placeholder="2026">
-    </label>
+      <div class="card" id="poolBox">
+        <div class="pool-head">
+          <h2>Файлы</h2>
+          <span id="poolSummary" class="pool-count"></span>
+        </div>
+        <div class="pool-list" id="poolList"></div>
+        <button type="button" id="downloadAllBtn" class="secondary-btn">Скачать всё</button>
+        <div class="status" id="bulkStatus"></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="empty-state" id="emptyState">Файлы не загружены</div>
+      <div class="status" id="fileStatus"></div>
+
+      <div class="card" id="reviewForm" style="display:none">
+        <div class="review-head">
+          <p class="file-context"><span id="activeFileName"></span> <span class="policy-chip">&middot; <span id="f_policyLabel"></span></span></p>
+          <div class="review-nav">
+            <button type="button" id="prevBtn" class="nav-btn" title="Предыдущий файл">&#8249;</button>
+            <span class="file-counter" id="fileCounter"></span>
+            <button type="button" id="nextBtn" class="nav-btn" title="Следующий файл">&#8250;</button>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="section-label">Страхователь</div>
+          <label class="wide">ФИО страхователя
+            <input id="f_fio">
+          </label>
+          <label class="wide">ФИО в родительном падеже (строка «от»)
+            <span class="row-with-btn">
+              <input id="f_fioGenitive">
+              <button type="button" id="recalcGenitiveBtn" title="Пересчитать из ФИО выше">&#8635;</button>
+            </span>
+          </label>
+          <label>Дата рождения
+            <input id="f_dob" placeholder="ДД.ММ.ГГГГ">
+          </label>
+
+          <div class="section-label">Паспорт</div>
+          <label>Серия паспорта
+            <input id="f_passSeries">
+          </label>
+          <label>Номер паспорта
+            <input id="f_passNumber">
+          </label>
+          <label>Дата выдачи паспорта
+            <input id="f_passDate" placeholder="ДД.ММ.ГГГГ">
+          </label>
+          <label class="wide">Кем выдан паспорт
+            <span class="row-with-btn">
+              <input id="f_passIssuer" placeholder="напр. ГУ МВД РОССИИ ПО МОСКОВСКОЙ ОБЛАСТИ">
+              <button type="button" id="recalcIssuerBtn" title="Подставить по адресу регистрации">&#8635;</button>
+            </span>
+          </label>
+          <label class="wide">Адрес регистрации
+            <input id="f_address">
+          </label>
+
+          <div class="section-label">Дата заявления</div>
+          <label>Число
+            <input id="f_day" placeholder="06">
+          </label>
+          <label>Месяц словом
+            <input id="f_month" placeholder="января">
+          </label>
+          <label>Год
+            <input id="f_year" placeholder="2026">
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="genBtn">Сформировать и скачать PDF</button>
+          <button id="printBtn" type="button" style="display:none">Печать</button>
+        </div>
+        <div class="status" id="genStatus"></div>
+      </div>
+    </main>
   </div>
-  <button id="genBtn">3) Сформировать и скачать PDF</button>
-  <button id="printBtn" type="button" style="display:none">🖨 Распечатать</button>
-  <button id="nextBtn" type="button" style="display:none">Следующий файл &rarr;</button>
-  <div class="status" id="genStatus"></div>
+
 </div>
 
 <script>/**
@@ -263,6 +575,29 @@
     return patronymic;
   }
 
+  function isAllCapsWord(word) {
+    return /[А-ЯЁ]/.test(word) && !/[а-яё]/.test(word);
+  }
+
+  function toTitleCaseRu(word) {
+    return word
+      .split("-")
+      .map((seg) => (seg ? seg.charAt(0).toUpperCase() + seg.slice(1).toLowerCase() : seg))
+      .join("-");
+  }
+
+  // Многие страховщики печатают ФИО страхователя КАПСОМ во всех полях полиса.
+  // Извлечённый текст копируется как есть, поэтому нормализуем регистр здесь —
+  // это и опрятнее в заявлении, и важно для declineFioGenitive, который добавляет
+  // окончания в нижнем регистре и иначе даёт "КИСЕЛЕВa" вместо "Киселева".
+  function normalizeFioCase(fio) {
+    if (!fio) return fio;
+    const words = fio.trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return fio;
+    if (!words.every(isAllCapsWord)) return fio;
+    return words.map(toTitleCaseRu).join(" ");
+  }
+
   function declineFioGenitive(fio) {
     const parts = (fio || "").trim().split(/\s+/).filter(Boolean);
     if (parts.length !== 3) return fio || "";
@@ -287,6 +622,11 @@
     [/Пермск(ий|ого)\s+кра/i, "ГУ МВД России по Пермскому краю"],
     [/Приморск(ий|ого)\s+кра/i, "ГУ МВД России по Приморскому краю"],
     [/Ставропольск(ий|ого)\s+кра/i, "ГУ МВД России по Ставропольскому краю"],
+    // Краткая прописка вида "г. Ставрополь" без слова "край" — Ставрополь не город
+    // федерального значения, поэтому он всё равно относится к краевому ГУ МВД, а не
+    // к отдельному городскому. Отрицательный lookahead исключает "Ставропольский" -
+    // это уже поймано правилом выше.
+    [/(?<![а-яё])Ставрополь(?!ск)/i, "ГУ МВД России по Ставропольскому краю"],
     [/Алтайск(ий|ого)\s+кра/i, "ГУ МВД России по Алтайскому краю"],
     [/Забайкальск(ий|ого)\s+кра/i, "УМВД России по Забайкальскому краю"],
     [/Камчатск(ий|ого)\s+кра/i, "УМВД России по Камчатскому краю"],
@@ -428,7 +768,10 @@
     ]);
     if (m) {
       data.passDate = m[2];
-      data.passIssuer = m[1].replace(/[,\s]+$/, "").trim();
+      data.passIssuer = m[1]
+        .replace(/\(\s*кем[^)]*\)/gi, "")
+        .replace(/[,\s]+$/, "")
+        .trim();
     } else {
       missing.push("дата выдачи паспорта");
       data.passIssuer = "";
@@ -676,11 +1019,17 @@
   const poolBox = document.getElementById("poolBox");
   const poolListEl = document.getElementById("poolList");
   const poolSummaryEl = document.getElementById("poolSummary");
+  const downloadAllBtn = document.getElementById("downloadAllBtn");
+  const bulkStatus = document.getElementById("bulkStatus");
+  const emptyState = document.getElementById("emptyState");
+  const fileStatus = document.getElementById("fileStatus");
   const reviewForm = document.getElementById("reviewForm");
   const activeFileNameEl = document.getElementById("activeFileName");
+  const fileCounterEl = document.getElementById("fileCounter");
+  const prevBtn = document.getElementById("prevBtn");
+  const nextBtn = document.getElementById("nextBtn");
   const genBtn = document.getElementById("genBtn");
   const printBtn = document.getElementById("printBtn");
-  const nextBtn = document.getElementById("nextBtn");
   const genStatus = document.getElementById("genStatus");
 
   const fields = [
@@ -697,20 +1046,83 @@
     "f_year",
   ];
 
-  const STATUS_LABEL = {
-    pending: "…",
-    ok: "✓",
-    warn: "!",
-    done: "✔",
-    error: "✕",
-  };
   const STATUS_TITLE = {
-    pending: "разбираю...",
+    pending: "разбираю",
     ok: "разобрано полностью",
     warn: "часть полей не распознана",
     done: "PDF сформирован",
     error: "ошибка чтения файла",
   };
+
+  function computeOutputFilename(data) {
+    const policyLabel = data.policySeries ? `${data.policySeries} ${data.policyNumber}` : "";
+    return sanitizeFilename(`${policyLabel} - ${data.fio}`) + ".pdf";
+  }
+
+  function downloadBlob(data, filename, mime) {
+    const blob = new Blob([data], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  // Автосохранение очереди в IndexedDB, чтобы случайная перезагрузка страницы
+  // не роняла загруженные файлы и правки в форме. localStorage тут не годится —
+  // там нет места для самих PDF-байтов, а без них нельзя пересобрать итоговый файл.
+  const SESSION_DB = "otkazWebSession";
+  const SESSION_STORE = "session";
+
+  function openSessionDb() {
+    if (!window.indexedDB) return Promise.reject(new Error("IndexedDB недоступен"));
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(SESSION_DB, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(SESSION_STORE);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function saveSession() {
+    try {
+      const db = await openSessionDb();
+      const tx = db.transaction(SESSION_STORE, "readwrite");
+      tx.objectStore(SESSION_STORE).put({ pool, activeId, poolIdCounter }, "state");
+      await new Promise((resolve, reject) => {
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    } catch (e) {
+      console.error("Автосохранение не удалось", e);
+    }
+  }
+
+  async function loadSession() {
+    try {
+      const db = await openSessionDb();
+      const tx = db.transaction(SESSION_STORE, "readonly");
+      const req = tx.objectStore(SESSION_STORE).get("state");
+      const state = await new Promise((resolve, reject) => {
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      db.close();
+      return state || null;
+    } catch (e) {
+      console.error("Восстановление сессии не удалось", e);
+      return null;
+    }
+  }
+
+  let saveTimer = null;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveSession, 400);
+  }
 
   let pool = [];
   let poolIdCounter = 0;
@@ -734,6 +1146,8 @@
         data: null,
         missing: [],
         error: null,
+        outputBytes: null,
+        outputName: null,
       };
       pool.push(item);
       added.push({ item, file });
@@ -745,6 +1159,7 @@
         item.bytes = new Uint8Array(await file.arrayBuffer());
         const text = await extractLines(item.bytes.slice());
         const { data, missing } = parsePolicyText(text);
+        if (data.fio) data.fio = normalizeFioCase(data.fio);
         data.fioGenitive = data.fio ? declineFioGenitive(data.fio) : "";
         data.passIssuer = data.passIssuer || guessPassportIssuer(data.address || "");
         item.data = data;
@@ -769,10 +1184,9 @@
       const row = document.createElement("div");
       row.className = "pool-row" + (item.id === activeId ? " active" : "");
 
-      const badge = document.createElement("span");
-      badge.className = "badge badge-" + item.status;
-      badge.textContent = STATUS_LABEL[item.status] || "";
-      badge.title = STATUS_TITLE[item.status] || "";
+      const dot = document.createElement("span");
+      dot.className = "dot dot-" + item.status;
+      dot.title = STATUS_TITLE[item.status] || "";
 
       const label = document.createElement("span");
       label.className = "pool-name";
@@ -789,15 +1203,26 @@
         removePoolItem(item.id);
       });
 
-      row.appendChild(badge);
+      row.appendChild(dot);
       row.appendChild(label);
       row.appendChild(removeBtn);
       row.addEventListener("click", () => selectPoolItem(item.id));
       poolListEl.appendChild(row);
     }
     const doneCount = pool.filter((p) => p.status === "done").length;
-    poolSummaryEl.textContent = pool.length ? `— готово ${doneCount} из ${pool.length}` : "";
+    poolSummaryEl.textContent = pool.length ? `${doneCount} / ${pool.length}` : "";
     poolBox.style.display = pool.length ? "block" : "none";
+    emptyState.style.display = pool.length ? "none" : "block";
+    updateNavButtons();
+    scheduleSave();
+  }
+
+  function updateNavButtons() {
+    const idx = pool.findIndex((p) => p.id === activeId);
+    const has = idx !== -1;
+    prevBtn.disabled = !has || idx <= 0;
+    nextBtn.disabled = !has || idx >= pool.length - 1;
+    fileCounterEl.textContent = has ? `${idx + 1} / ${pool.length}` : "";
   }
 
   function removePoolItem(id) {
@@ -839,25 +1264,29 @@
     activeId = id;
     activeFileNameEl.textContent = item.name;
     genStatus.textContent = "";
+    genStatus.className = "status";
+    fileStatus.textContent = "";
+    fileStatus.className = "status";
     printBtn.style.display = "none";
-    nextBtn.style.display = "none";
 
     if (item.status === "pending") {
       reviewForm.style.display = "none";
+      fileStatus.textContent = "Обрабатывается...";
     } else if (item.status === "error") {
       reviewForm.style.display = "none";
-      genStatus.textContent = "Не удалось прочитать этот PDF: " + item.error;
-      genStatus.className = "status error";
+      fileStatus.textContent = "Не удалось прочитать этот PDF: " + item.error;
+      fileStatus.className = "status error";
     } else {
       populateForm(item);
       reviewForm.style.display = "block";
       if (item.missing && item.missing.length) {
-        parseStatus.textContent =
-          `«${item.name}»: не распознано — ` + item.missing.join(", ") + ".";
-        parseStatus.className = "status error";
-      } else {
-        parseStatus.textContent = `«${item.name}»: готово.`;
-        parseStatus.className = "status ok";
+        fileStatus.textContent = "Не распознано: " + item.missing.join(", ");
+        fileStatus.className = "status warn";
+      }
+      if (item.outputBytes) {
+        printBtn.style.display = "inline-block";
+        printBtn.onclick = () =>
+          printPdfBlobUrl(URL.createObjectURL(new Blob([item.outputBytes], { type: "application/pdf" })));
       }
     }
     renderPoolList();
@@ -888,14 +1317,121 @@
   fields.forEach((id) => {
     document.getElementById(id).addEventListener("input", (e) => {
       e.target.classList.toggle("missing", !e.target.value.trim());
+      saveActiveFormToPool();
+      scheduleSave();
     });
   });
 
   document.getElementById("recalcGenitiveBtn").addEventListener("click", () => {
     const fioEl = document.getElementById("f_fio");
     const genEl = document.getElementById("f_fioGenitive");
+    fioEl.value = normalizeFioCase(fioEl.value.trim());
+    fioEl.classList.toggle("missing", !fioEl.value.trim());
     genEl.value = declineFioGenitive(fioEl.value);
     genEl.classList.toggle("missing", !genEl.value.trim());
+  });
+
+  prevBtn.addEventListener("click", () => {
+    const idx = pool.findIndex((p) => p.id === activeId);
+    if (idx > 0) selectPoolItem(pool[idx - 1].id);
+  });
+
+  nextBtn.addEventListener("click", () => {
+    const idx = pool.findIndex((p) => p.id === activeId);
+    if (idx !== -1 && idx < pool.length - 1) selectPoolItem(pool[idx + 1].id);
+  });
+
+  async function writeFileToDir(dirHandle, name, bytes) {
+    const fileHandle = await dirHandle.getFileHandle(name, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(bytes);
+    await writable.close();
+  }
+
+  downloadAllBtn.addEventListener("click", async () => {
+    saveActiveFormToPool();
+    const eligible = pool.filter((p) => p.status === "ok" || p.status === "warn" || p.status === "done");
+    bulkStatus.textContent = "";
+    bulkStatus.className = "status";
+    if (!eligible.length) {
+      bulkStatus.textContent = "Нет распознанных файлов.";
+      bulkStatus.className = "status error";
+      return;
+    }
+
+    const supportsDirPicker = typeof window.showDirectoryPicker === "function";
+    let dirHandle = null;
+    if (supportsDirPicker) {
+      try {
+        dirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+      } catch (e) {
+        if (e && e.name === "AbortError") return;
+        console.error(e);
+        bulkStatus.textContent = "Не удалось открыть папку: " + e;
+        bulkStatus.className = "status error";
+        return;
+      }
+    }
+
+    downloadAllBtn.disabled = true;
+    bulkStatus.textContent = "Сохраняю...";
+    try {
+      const usedNames = new Set();
+      const skipped = [];
+      let built = 0;
+
+      for (const item of eligible) {
+        try {
+          let bytes = item.outputBytes;
+          let filename = item.outputName;
+          if (!bytes) {
+            const data = item.data || {};
+            const hasAllFields = fields.every((id) => (data[id.replace("f_", "")] || "").toString().trim());
+            if (!hasAllFields) {
+              skipped.push(item.name);
+              continue;
+            }
+            bytes = await buildFinalPdf(item.bytes, data);
+            filename = computeOutputFilename(data);
+            item.outputBytes = bytes;
+            item.outputName = filename;
+            item.status = "done";
+          }
+          let uniqueName = filename;
+          let n = 2;
+          while (usedNames.has(uniqueName)) {
+            uniqueName = filename.replace(/\.pdf$/i, ` (${n}).pdf`);
+            n++;
+          }
+          usedNames.add(uniqueName);
+
+          if (dirHandle) {
+            await writeFileToDir(dirHandle, uniqueName, bytes);
+          } else {
+            downloadBlob(bytes, uniqueName, "application/pdf");
+          }
+          built++;
+        } catch (e) {
+          console.error(e);
+          skipped.push(item.name);
+        }
+      }
+
+      if (!built) {
+        bulkStatus.textContent = "Нет файлов с заполненными полями для сохранения.";
+        bulkStatus.className = "status error";
+        return;
+      }
+
+      const prefix = supportsDirPicker ? "Сохранено" : "Скачано (браузер не поддерживает выбор папки) —";
+      bulkStatus.textContent = skipped.length
+        ? `${prefix} ${built} из ${eligible.length}, пропущено: ${skipped.join(", ")}.`
+        : `${prefix} файлов: ${built}.`;
+      bulkStatus.className = skipped.length ? "status warn" : "status ok";
+    } finally {
+      renderPoolList();
+      downloadAllBtn.disabled = false;
+    }
   });
 
   document.getElementById("recalcIssuerBtn").addEventListener("click", () => {
@@ -932,34 +1468,22 @@
 
     genBtn.disabled = true;
     printBtn.style.display = "none";
-    nextBtn.style.display = "none";
     genStatus.textContent = "Формирую PDF...";
     genStatus.className = "status";
     try {
       const bytes = await buildFinalPdf(item.bytes, formData);
-      const policyLabel = document.getElementById("f_policyLabel").textContent;
-      const filename = sanitizeFilename(`${policyLabel} - ${formData.fio}`) + ".pdf";
-      const blob = new Blob([bytes], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      genStatus.textContent = "Готово: " + filename;
-      genStatus.className = "status ok";
+      const filename = computeOutputFilename(formData);
+      item.outputBytes = bytes;
+      item.outputName = filename;
       item.status = "done";
+      downloadBlob(bytes, filename, "application/pdf");
+      genStatus.textContent = "";
+      genStatus.className = "status";
       renderPoolList();
 
       printBtn.style.display = "inline-block";
-      printBtn.onclick = () => printPdfBlobUrl(url);
-
-      const next = pool.find((p) => p.status !== "done" && p.id !== item.id);
-      if (next) {
-        nextBtn.style.display = "inline-block";
-        nextBtn.onclick = () => selectPoolItem(next.id);
-      }
+      printBtn.onclick = () =>
+        printPdfBlobUrl(URL.createObjectURL(new Blob([bytes], { type: "application/pdf" })));
     } catch (e) {
       console.error(e);
       genStatus.textContent = "Ошибка формирования PDF: " + e;
@@ -968,6 +1492,16 @@
       genBtn.disabled = false;
     }
   });
+
+  (async () => {
+    const state = await loadSession();
+    if (!state || !Array.isArray(state.pool) || !state.pool.length) return;
+    pool = state.pool;
+    poolIdCounter = state.poolIdCounter || pool.reduce((m, p) => Math.max(m, p.id), 0);
+    const restoreId = state.activeId && findItem(state.activeId) ? state.activeId : pool[0].id;
+    renderPoolList();
+    selectPoolItem(restoreId);
+  })();
 })();
 </script>
 </body>
